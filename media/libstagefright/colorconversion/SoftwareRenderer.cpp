@@ -102,6 +102,7 @@ void SoftwareRenderer::resetFormatIfChanged(const sp<AMessage> &format) {
     size_t bufWidth, bufHeight;
 
     switch (mColorFormat) {
+#if 0
         case OMX_COLOR_FormatYUV420Planar:
         case OMX_TI_COLOR_FormatYUV420PackedSemiPlanar:
         case OMX_COLOR_FormatYUV420SemiPlanar:
@@ -115,6 +116,7 @@ void SoftwareRenderer::resetFormatIfChanged(const sp<AMessage> &format) {
 
             // fall through.
         }
+#endif
 
         default:
             halFormat = HAL_PIXEL_FORMAT_RGB_565;
