@@ -260,6 +260,9 @@ uint32_t OMXCodec::getComponentQuirks(
     if (info->hasQuirk("output-buffers-are-unreadable")) {
         quirks |= kOutputBuffersAreUnreadable;
     }
+    if (info->hasQuirk("requires-loaded-to-idle-after-allocation")) {
+        quirks |= kRequiresLoadedToIdleAfterAllocation;
+    }
 
     return quirks;
 }
