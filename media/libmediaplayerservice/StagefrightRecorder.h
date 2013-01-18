@@ -113,6 +113,7 @@ private:
     int64_t mTimeBetweenTimeLapseFrameCaptureUs;
     sp<CameraSourceTimeLapse> mCameraSourceTimeLapse;
 
+    bool mUserSetupFrameRate;
 
     String8 mParams;
 
