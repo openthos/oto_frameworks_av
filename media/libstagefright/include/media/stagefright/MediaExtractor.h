@@ -104,6 +104,8 @@ private:
 
     MediaExtractor(const MediaExtractor &);
     MediaExtractor &operator=(const MediaExtractor &);
+
+    friend struct FFMPEGSoftCodec;
 };
 
 }  // namespace android

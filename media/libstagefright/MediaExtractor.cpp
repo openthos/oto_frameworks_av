@@ -51,6 +51,7 @@
 // still doing some on/off toggling here.
 #define MEDIA_LOG       1
 
+#include <media/stagefright/FFMPEGSoftCodec.h>
 
 namespace android {
 
@@ -150,7 +151,7 @@ sp<MediaExtractor> MediaExtractor::CreateFromService(
     RegisterDefaultSniffers();
 
     // initialize source decryption if needed
-    source->DrmInitialization(nullptr /* mime */);
+    bool isDrm = source->DrmInitialization(nullptr /* mime */).get() != NULL;
 
     sp<AMessage> meta;
 
@@ -164,12 +165,14 @@ sp<MediaExtractor> MediaExtractor::CreateFromService(
         }
 
         mime = tmp.string();
-        ALOGV("Autodetected media content as '%s' with confidence %.2f",
-             mime, confidence);
     }
 
     MediaExtractor *ret = NULL;
-    if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MPEG4)
+    AString extractorName;
+    if (meta.get() && meta->findString("extended-extractor-use", &extractorName)
+            && (ret = FFMPEGSoftCodec::createExtractor(source, mime, meta)) != NULL) {
+        ALOGI("Use extended extractor for the special mime(%s) or codec", mime);
+    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MPEG4)
             || !strcasecmp(mime, "audio/mp4")) {
         ret = new MPEG4Extractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) {
@@ -193,6 +196,8 @@ sp<MediaExtractor> MediaExtractor::CreateFromService(
         ret = new MPEG2PSExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MIDI)) {
         ret = new MidiExtractor(source);
+    } else if (!isDrm) {
+        ret = FFMPEGSoftCodec::createExtractor(source, mime, meta);
     }
 
     if (ret != NULL) {
@@ -240,18 +245,28 @@ bool MediaExtractor::sniff(
         }
     }
 
+    String8 newMimeType;
+    if (mimeType != NULL) {
+        newMimeType.setTo(*mimeType);
+    }
+
     for (List<SnifferFunc>::iterator it = gSniffers.begin();
          it != gSniffers.end(); ++it) {
-        String8 newMimeType;
-        float newConfidence;
-        sp<AMessage> newMeta;
-        if ((*it)(source, &newMimeType, &newConfidence, &newMeta)) {
+        int64_t sniffStart = ALooper::GetNowUs();
+        String8 newMimeType = *mimeType;
+        float newConfidence = *confidence;
+        sp<AMessage> newMeta = *meta;
+        if (*it != NULL && (*it)(source, &newMimeType, &newConfidence, &newMeta)) {
             if (newConfidence > *confidence) {
                 *mimeType = newMimeType;
                 *confidence = newConfidence;
                 *meta = newMeta;
             }
         }
+
+        ALOGV("Sniffer (%p) completed in %.2f ms (mime=%s confidence=%.2f",
+                *it, ((float)(ALooper::GetNowUs() - sniffStart) / 1000.0f),
+                mimeType == NULL ? NULL : (*mimeType).string(), *confidence);
     }
 
     return *confidence > 0.0;
@@ -287,6 +302,7 @@ void MediaExtractor::RegisterDefaultSniffers() {
     RegisterSniffer_l(SniffAAC);
     RegisterSniffer_l(SniffMPEG2PS);
     RegisterSniffer_l(SniffMidi);
+    RegisterSniffer_l(FFMPEGSoftCodec::getSniffer());
 
     gSniffersRegistered = true;
 }

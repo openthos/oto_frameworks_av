@@ -15,7 +15,7 @@ LOCAL_REQUIRED_MODULES_arm := mediaextractor.policy
 LOCAL_REQUIRED_MODULES_arm64 := mediaextractor.policy
 LOCAL_REQUIRED_MODULES_x86 := mediaextractor.policy
 LOCAL_SRC_FILES := main_extractorservice.cpp
-LOCAL_SHARED_LIBRARIES := libmedia libmediaextractorservice libbinder libutils \
+LOCAL_SHARED_LIBRARIES := libmedia libmediaextractorservice libstagefright libbinder libutils \
     liblog libbase libicuuc libavservices_minijail
 LOCAL_STATIC_LIBRARIES := libicuandroid_utils
 LOCAL_MODULE:= mediaextractor

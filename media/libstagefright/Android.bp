@@ -68,6 +68,7 @@ cc_library_shared {
         "WAVExtractor.cpp",
         "XINGSeeker.cpp",
         "avc_utils.cpp",
+        "FFMPEGSoftCodec.cpp",
     ],
 
     shared_libs: [
@@ -123,6 +124,11 @@ cc_library_shared {
         "libstagefright_mpeg2ts",
         "libstagefright_id3",
         "libFLAC",
+    ],
+
+    include_dirs: [
+        // FFMPEG plugin
+        "external/stagefright-plugins/include"
     ],
 
     export_shared_lib_headers: [
