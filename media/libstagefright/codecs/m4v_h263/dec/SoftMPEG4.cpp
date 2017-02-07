@@ -109,34 +109,41 @@ void SoftMPEG4::onQueueFilled(OMX_U32 /* portIndex */) {
     while (!inQueue.empty() && outQueue.size() == kNumOutputBuffers) {
         BufferInfo *inInfo = *inQueue.begin();
         OMX_BUFFERHEADERTYPE *inHeader = inInfo->mHeader;
+        if (inHeader == NULL) {
+            inQueue.erase(inQueue.begin());
+            inInfo->mOwnedByUs = false;
+            continue;
+        }
 
         PortInfo *port = editPortInfo(1);
 
         OMX_BUFFERHEADERTYPE *outHeader =
             port->mBuffers.editItemAt(mNumSamplesOutput & 1).mHeader;
 
-        if ((inHeader->nFlags & OMX_BUFFERFLAG_EOS) && inHeader->nFilledLen == 0) {
+        if (inHeader->nFilledLen == 0) {
             inQueue.erase(inQueue.begin());
             inInfo->mOwnedByUs = false;
             notifyEmptyBufferDone(inHeader);
 
             ++mInputBufferCount;
 
-            outHeader->nFilledLen = 0;
-            outHeader->nFlags = OMX_BUFFERFLAG_EOS;
+            if (inHeader->nFlags & OMX_BUFFERFLAG_EOS) {
+                outHeader->nFilledLen = 0;
+                outHeader->nFlags = OMX_BUFFERFLAG_EOS;
 
-            List<BufferInfo *>::iterator it = outQueue.begin();
-            while ((*it)->mHeader != outHeader) {
-                ++it;
+                List<BufferInfo *>::iterator it = outQueue.begin();
+                while ((*it)->mHeader != outHeader) {
+                    ++it;
+                }
+
+                BufferInfo *outInfo = *it;
+                outInfo->mOwnedByUs = false;
+                outQueue.erase(it);
+                outInfo = NULL;
+
+                notifyFillBufferDone(outHeader);
+                outHeader = NULL;
             }
-
-            BufferInfo *outInfo = *it;
-            outInfo->mOwnedByUs = false;
-            outQueue.erase(it);
-            outInfo = NULL;
-
-            notifyFillBufferDone(outHeader);
-            outHeader = NULL;
             return;
         }
 
@@ -209,8 +216,17 @@ void SoftMPEG4::onQueueFilled(OMX_U32 /* portIndex */) {
             PortInfo *port = editPortInfo(1);
             OMX_BUFFERHEADERTYPE *outHeader = port->mBuffers.editItemAt(1).mHeader;
 
+            OMX_U32 yFrameSize = sizeof(uint8) * mHandle->size;
+            if ((outHeader->nAllocLen < yFrameSize) ||
+                    (outHeader->nAllocLen - yFrameSize < yFrameSize / 2)) {
+                ALOGE("Too small output buffer for reference frame: %lu bytes",
+                        (unsigned long)outHeader->nAllocLen);
+                android_errorWriteLog(0x534e4554, "30033990");
+                notify(OMX_EventError, OMX_ErrorUndefined, 0, NULL);
+                mSignalledError = true;
+                return;
+            }
             PVSetReferenceYUV(mHandle, outHeader->pBuffer);
-
             mFramesConfigured = true;
         }
 
@@ -228,6 +244,23 @@ void SoftMPEG4::onQueueFilled(OMX_U32 /* portIndex */) {
         int32_t bufferSize = inHeader->nFilledLen;
         int32_t tmp = bufferSize;
 
+        OMX_U32 frameSize;
+        OMX_U64 yFrameSize = (OMX_U64)mWidth * (OMX_U64)mHeight;
+        if (yFrameSize > ((OMX_U64)UINT32_MAX / 3) * 2) {
+            ALOGE("Frame size too large");
+            notify(OMX_EventError, OMX_ErrorUndefined, 0, NULL);
+            mSignalledError = true;
+            return;
+        }
+        frameSize = (OMX_U32)(yFrameSize + (yFrameSize / 2));
+
+        if (outHeader->nAllocLen < frameSize) {
+            android_errorWriteLog(0x534e4554, "27833616");
+            ALOGE("Insufficient output buffer size");
+            notify(OMX_EventError, OMX_ErrorUndefined, 0, NULL);
+            mSignalledError = true;
+            return;
+        }
         // The PV decoder is lying to us, sometimes it'll claim to only have
         // consumed a subset of the buffer when it clearly consumed all of it.
         // ignore whatever it says...
@@ -271,7 +304,7 @@ void SoftMPEG4::onQueueFilled(OMX_U32 /* portIndex */) {
         ++mInputBufferCount;
 
         outHeader->nOffset = 0;
-        outHeader->nFilledLen = (mWidth * mHeight * 3) / 2;
+        outHeader->nFilledLen = frameSize;
 
         List<BufferInfo *>::iterator it = outQueue.begin();
         while ((*it)->mHeader != outHeader) {

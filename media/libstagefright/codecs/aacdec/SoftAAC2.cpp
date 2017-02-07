@@ -75,7 +75,7 @@ SoftAAC2::SoftAAC2(
 
 SoftAAC2::~SoftAAC2() {
     aacDecoder_Close(mAACDecoder);
-    delete mOutputDelayRingBuffer;
+    delete[] mOutputDelayRingBuffer;
 }
 
 void SoftAAC2::initPorts() {
@@ -209,6 +209,10 @@ OMX_ERRORTYPE SoftAAC2::internalGetParameter(
             OMX_AUDIO_PARAM_AACPROFILETYPE *aacParams =
                 (OMX_AUDIO_PARAM_AACPROFILETYPE *)params;
 
+            if (!isValidOMXParam(aacParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (aacParams->nPortIndex != 0) {
                 return OMX_ErrorUndefined;
             }
@@ -243,6 +247,10 @@ OMX_ERRORTYPE SoftAAC2::internalGetParameter(
         {
             OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
+
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (pcmParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
@@ -284,6 +292,10 @@ OMX_ERRORTYPE SoftAAC2::internalSetParameter(
             const OMX_PARAM_COMPONENTROLETYPE *roleParams =
                 (const OMX_PARAM_COMPONENTROLETYPE *)params;
 
+            if (!isValidOMXParam(roleParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (strncmp((const char *)roleParams->cRole,
                         "audio_decoder.aac",
                         OMX_MAX_STRINGNAME_SIZE - 1)) {
@@ -297,6 +309,10 @@ OMX_ERRORTYPE SoftAAC2::internalSetParameter(
         {
             const OMX_AUDIO_PARAM_AACPROFILETYPE *aacParams =
                 (const OMX_AUDIO_PARAM_AACPROFILETYPE *)params;
+
+            if (!isValidOMXParam(aacParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (aacParams->nPortIndex != 0) {
                 return OMX_ErrorUndefined;
@@ -318,6 +334,11 @@ OMX_ERRORTYPE SoftAAC2::internalSetParameter(
         {
             const OMX_AUDIO_PARAM_ANDROID_AACPRESENTATIONTYPE *aacPresParams =
                     (const OMX_AUDIO_PARAM_ANDROID_AACPRESENTATIONTYPE *)params;
+
+            if (!isValidOMXParam(aacPresParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             // for the following parameters of the OMX_AUDIO_PARAM_AACPROFILETYPE structure,
             // a value of -1 implies the parameter is not set by the application:
             //   nMaxOutputChannels     uses default platform properties, see configureDownmix()
@@ -383,6 +404,10 @@ OMX_ERRORTYPE SoftAAC2::internalSetParameter(
         {
             const OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
+
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (pcmParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
@@ -600,12 +625,15 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
                         signalError = true;
                     } else {
                         adtsHeaderSize = (protectionAbsent ? 7 : 9);
+                        if (aac_frame_length < adtsHeaderSize) {
+                            signalError = true;
+                        } else {
+                            inBuffer[0] = (UCHAR *)adtsHeader + adtsHeaderSize;
+                            inBufferLength[0] = aac_frame_length - adtsHeaderSize;
 
-                        inBuffer[0] = (UCHAR *)adtsHeader + adtsHeaderSize;
-                        inBufferLength[0] = aac_frame_length - adtsHeaderSize;
-
-                        inHeader->nOffset += adtsHeaderSize;
-                        inHeader->nFilledLen -= adtsHeaderSize;
+                            inHeader->nOffset += adtsHeaderSize;
+                            inHeader->nFilledLen -= adtsHeaderSize;
+                        }
                     }
                 }
 
@@ -623,7 +651,7 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
                 } else {
                     int64_t currentTime = mBufferTimestamps.top();
                     currentTime += mStreamInfo->aacSamplesPerFrame *
-                            1000000ll / mStreamInfo->sampleRate;
+                            1000000ll / mStreamInfo->aacSampleRate;
                     mBufferTimestamps.add(currentTime);
                 }
             } else {
@@ -874,9 +902,9 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
                         // adjust/interpolate next time stamp
                         *currentBufLeft -= decodedSize;
                         *nextTimeStamp += mStreamInfo->aacSamplesPerFrame *
-                                1000000ll / mStreamInfo->sampleRate;
+                                1000000ll / mStreamInfo->aacSampleRate;
                         ALOGV("adjusted nextTimeStamp/size to %lld/%d",
-                                *nextTimeStamp, *currentBufLeft);
+                                (long long) *nextTimeStamp, *currentBufLeft);
                     } else {
                         // move to next timestamp in list
                         if (mBufferTimestamps.size() > 0) {
@@ -885,7 +913,7 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
                             mBufferSizes.removeAt(0);
                             currentBufLeft = &mBufferSizes.editItemAt(0);
                             ALOGV("moved to next time/size: %lld/%d",
-                                    *nextTimeStamp, *currentBufLeft);
+                                    (long long) *nextTimeStamp, *currentBufLeft);
                         }
                         // try to limit output buffer size to match input buffers
                         // (e.g when an input buffer contained 4 "sub" frames, output
@@ -975,6 +1003,7 @@ void SoftAAC2::onPortFlushCompleted(OMX_U32 portIndex) {
         mBufferSizes.clear();
         mDecodedSizes.clear();
         mLastInHeader = NULL;
+        mEndOfInput = false;
     } else {
         int avail;
         while ((avail = outputDelayRingBufferSamplesAvailable()) > 0) {
@@ -989,12 +1018,11 @@ void SoftAAC2::onPortFlushCompleted(OMX_U32 portIndex) {
             mOutputBufferCount++;
         }
         mOutputDelayRingBufferReadPos = mOutputDelayRingBufferWritePos;
+        mEndOfOutput = false;
     }
 }
 
 void SoftAAC2::drainDecoder() {
-    int32_t outputDelay = mStreamInfo->outputDelay * mStreamInfo->numChannels;
-
     // flush decoder until outputDelay is compensated
     while (mOutputDelayCompensated > 0) {
         // a buffer big enough for MAX_CHANNEL_COUNT channels of decoded HE-AAC

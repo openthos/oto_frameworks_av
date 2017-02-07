@@ -134,6 +134,10 @@ OMX_ERRORTYPE SoftOpus::internalGetParameter(
             OMX_AUDIO_PARAM_ANDROID_OPUSTYPE *opusParams =
                 (OMX_AUDIO_PARAM_ANDROID_OPUSTYPE *)params;
 
+            if (!isValidOMXParam(opusParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (opusParams->nPortIndex != 0) {
                 return OMX_ErrorUndefined;
             }
@@ -155,6 +159,10 @@ OMX_ERRORTYPE SoftOpus::internalGetParameter(
         {
             OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
+
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (pcmParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
@@ -191,6 +199,10 @@ OMX_ERRORTYPE SoftOpus::internalSetParameter(
             const OMX_PARAM_COMPONENTROLETYPE *roleParams =
                 (const OMX_PARAM_COMPONENTROLETYPE *)params;
 
+            if (!isValidOMXParam(roleParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (strncmp((const char *)roleParams->cRole,
                         "audio_decoder.opus",
                         OMX_MAX_STRINGNAME_SIZE - 1)) {
@@ -204,6 +216,10 @@ OMX_ERRORTYPE SoftOpus::internalSetParameter(
         {
             const OMX_AUDIO_PARAM_ANDROID_OPUSTYPE *opusParams =
                 (const OMX_AUDIO_PARAM_ANDROID_OPUSTYPE *)params;
+
+            if (!isValidOMXParam(opusParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (opusParams->nPortIndex != 0) {
                 return OMX_ErrorUndefined;
@@ -345,9 +361,15 @@ void SoftOpus::onQueueFilled(OMX_U32 portIndex) {
             }
 
             uint8_t channel_mapping[kMaxChannels] = {0};
-            memcpy(&channel_mapping,
-                   kDefaultOpusChannelLayout,
-                   kMaxChannelsWithDefaultLayout);
+            if (mHeader->channels <= kMaxChannelsWithDefaultLayout) {
+                memcpy(&channel_mapping,
+                       kDefaultOpusChannelLayout,
+                       kMaxChannelsWithDefaultLayout);
+            } else {
+                memcpy(&channel_mapping,
+                       mHeader->stream_map,
+                       mHeader->channels);
+            }
 
             int status = OPUS_INVALID_STATE;
             mDecoder = opus_multistream_decoder_create(kRate,
@@ -397,6 +419,14 @@ void SoftOpus::onQueueFilled(OMX_U32 portIndex) {
         BufferInfo *inInfo = *inQueue.begin();
         OMX_BUFFERHEADERTYPE *inHeader = inInfo->mHeader;
 
+        // Ignore CSD re-submissions.
+        if (inHeader->nFlags & OMX_BUFFERFLAG_CODECCONFIG) {
+            inQueue.erase(inQueue.begin());
+            inInfo->mOwnedByUs = false;
+            notifyEmptyBufferDone(inHeader);
+            return;
+        }
+
         BufferInfo *outInfo = *outQueue.begin();
         OMX_BUFFERHEADERTYPE *outHeader = outInfo->mHeader;
 
@@ -428,12 +458,17 @@ void SoftOpus::onQueueFilled(OMX_U32 portIndex) {
 
         const uint8_t *data = inHeader->pBuffer + inHeader->nOffset;
         const uint32_t size = inHeader->nFilledLen;
+        size_t frameSize = kMaxOpusOutputPacketSizeSamples;
+        if (frameSize > outHeader->nAllocLen / sizeof(int16_t) / mHeader->channels) {
+            frameSize = outHeader->nAllocLen / sizeof(int16_t) / mHeader->channels;
+            android_errorWriteLog(0x534e4554, "27833616");
+        }
 
         int numFrames = opus_multistream_decode(mDecoder,
                                                 data,
                                                 size,
                                                 (int16_t *)outHeader->pBuffer,
-                                                kMaxOpusOutputPacketSizeSamples,
+                                                frameSize,
                                                 0);
         if (numFrames < 0) {
             ALOGE("opus_multistream_decode returned %d", numFrames);

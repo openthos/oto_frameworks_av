@@ -34,6 +34,9 @@ static void InitOMXParams(T *params) {
     params->nVersion.s.nStep = 0;
 }
 
+// Microsoft WAV GSM encoding packs two GSM frames into 65 bytes.
+static const int kMSGSMFrameSize = 65;
+
 SoftGSM::SoftGSM(
         const char *name,
         const OMX_CALLBACKTYPE *callbacks,
@@ -64,7 +67,7 @@ void SoftGSM::initPorts() {
     def.eDir = OMX_DirInput;
     def.nBufferCountMin = kNumBuffers;
     def.nBufferCountActual = def.nBufferCountMin;
-    def.nBufferSize = sizeof(gsm_frame);
+    def.nBufferSize = 1024 / kMSGSMFrameSize * kMSGSMFrameSize;
     def.bEnabled = OMX_TRUE;
     def.bPopulated = OMX_FALSE;
     def.eDomain = OMX_PortDomainAudio;
@@ -107,6 +110,10 @@ OMX_ERRORTYPE SoftGSM::internalGetParameter(
             OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
 
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (pcmParams->nPortIndex > 1) {
                 return OMX_ErrorUndefined;
             }
@@ -138,6 +145,10 @@ OMX_ERRORTYPE SoftGSM::internalSetParameter(
             OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams =
                 (OMX_AUDIO_PARAM_PCMMODETYPE *)params;
 
+            if (!isValidOMXParam(pcmParams)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (pcmParams->nPortIndex != 0 && pcmParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
             }
@@ -157,6 +168,10 @@ OMX_ERRORTYPE SoftGSM::internalSetParameter(
         {
             const OMX_PARAM_COMPONENTROLETYPE *roleParams =
                 (const OMX_PARAM_COMPONENTROLETYPE *)params;
+
+            if (!isValidOMXParam(roleParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (strncmp((const char *)roleParams->cRole,
                         "audio_decoder.gsm",
@@ -207,10 +222,18 @@ void SoftGSM::onQueueFilled(OMX_U32 /* portIndex */) {
             mSignalledError = true;
         }
 
-        if(((inHeader->nFilledLen / 65) * 65) != inHeader->nFilledLen) {
-            ALOGE("input buffer not multiple of 65 (%d).", inHeader->nFilledLen);
+        if(((inHeader->nFilledLen / kMSGSMFrameSize) * kMSGSMFrameSize) != inHeader->nFilledLen) {
+            ALOGE("input buffer not multiple of %d (%d).", kMSGSMFrameSize, inHeader->nFilledLen);
             notify(OMX_EventError, OMX_ErrorUndefined, 0, NULL);
             mSignalledError = true;
+        }
+
+        if (outHeader->nAllocLen < (inHeader->nFilledLen / kMSGSMFrameSize) * 320) {
+            ALOGE("output buffer is not large enough (%d).", outHeader->nAllocLen);
+            android_errorWriteLog(0x534e4554, "27793367");
+            notify(OMX_EventError, OMX_ErrorUndefined, 0, NULL);
+            mSignalledError = true;
+            return;
         }
 
         uint8_t *inputptr = inHeader->pBuffer + inHeader->nOffset;
@@ -257,6 +280,25 @@ int SoftGSM::DecodeGSM(gsm handle,
     }
     return ret;
 }
+
+void SoftGSM::onPortFlushCompleted(OMX_U32 portIndex) {
+    if (portIndex == 0) {
+        gsm_destroy(mGsm);
+        mGsm = gsm_create();
+        int msopt = 1;
+        gsm_option(mGsm, GSM_OPT_WAV49, &msopt);
+    }
+}
+
+void SoftGSM::onReset() {
+    gsm_destroy(mGsm);
+    mGsm = gsm_create();
+    int msopt = 1;
+    gsm_option(mGsm, GSM_OPT_WAV49, &msopt);
+    mSignalledError = false;
+}
+
+
 
 
 }  // namespace android

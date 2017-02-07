@@ -35,7 +35,10 @@
 /*------------------------------------------------------------------------------
     1. Include headers
 ------------------------------------------------------------------------------*/
+#include <log/log.h>
+
 #include <stdlib.h>
+#include <string.h>
 #include "basetype.h"
 #include "h264bsd_container.h"
 #include "H264SwDecApi.h"
@@ -78,8 +81,13 @@ void H264SwDecTrace(char *string) {
     UNUSED(string);
 }
 
-void* H264SwDecMalloc(u32 size) {
-    return malloc(size);
+void* H264SwDecMalloc(u32 size, u32 num) {
+    if (size > UINT32_MAX / num) {
+        ALOGE("can't allocate %u * %u bytes", size, num);
+        android_errorWriteLog(0x534e4554, "27855419");
+        return NULL;
+    }
+    return malloc(size * num);
 }
 
 void H264SwDecFree(void *ptr) {
@@ -143,7 +151,7 @@ H264SwDecRet H264SwDecInit(H264SwDecInst *decInst, u32 noOutputReordering)
         return(H264SWDEC_PARAM_ERR);
     }
 
-    pDecCont = (decContainer_t *)H264SwDecMalloc(sizeof(decContainer_t));
+    pDecCont = (decContainer_t *)H264SwDecMalloc(sizeof(decContainer_t), 1);
 
     if (pDecCont == NULL)
     {

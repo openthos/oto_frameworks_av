@@ -368,6 +368,10 @@ OMX_ERRORTYPE SoftAVCEncoder::internalGetParameter(
             OMX_VIDEO_PARAM_BITRATETYPE *bitRate =
                 (OMX_VIDEO_PARAM_BITRATETYPE *) params;
 
+            if (!isValidOMXParam(bitRate)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (bitRate->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
             }
@@ -381,6 +385,10 @@ OMX_ERRORTYPE SoftAVCEncoder::internalGetParameter(
         {
             OMX_VIDEO_PARAM_AVCTYPE *avcParams =
                 (OMX_VIDEO_PARAM_AVCTYPE *)params;
+
+            if (!isValidOMXParam(avcParams)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (avcParams->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
@@ -425,6 +433,10 @@ OMX_ERRORTYPE SoftAVCEncoder::internalSetParameter(
             OMX_VIDEO_PARAM_BITRATETYPE *bitRate =
                 (OMX_VIDEO_PARAM_BITRATETYPE *) params;
 
+            if (!isValidOMXParam(bitRate)) {
+                return OMX_ErrorBadParameter;
+            }
+
             if (bitRate->nPortIndex != 1 ||
                 bitRate->eControlRate != OMX_Video_ControlRateVariable) {
                 return OMX_ErrorUndefined;
@@ -438,6 +450,10 @@ OMX_ERRORTYPE SoftAVCEncoder::internalSetParameter(
         {
             OMX_VIDEO_PARAM_AVCTYPE *avcType =
                 (OMX_VIDEO_PARAM_AVCTYPE *)params;
+
+            if (!isValidOMXParam(avcType)) {
+                return OMX_ErrorBadParameter;
+            }
 
             if (avcType->nPortIndex != 1) {
                 return OMX_ErrorUndefined;
@@ -567,13 +583,6 @@ void SoftAVCEncoder::onQueueFilled(OMX_U32 /* portIndex */) {
                 videoInput.coding_timestamp = (inHeader->nTimeStamp + 500) / 1000;  // in ms
                 const uint8_t *inputData = NULL;
                 if (mInputDataIsMeta) {
-                    if (inHeader->nFilledLen != 8) {
-                        ALOGE("MetaData buffer is wrong size! "
-                                "(got %u bytes, expected 8)", inHeader->nFilledLen);
-                        mSignalledError = true;
-                        notify(OMX_EventError, OMX_ErrorUndefined, 0, 0);
-                        return;
-                    }
                     inputData =
                         extractGraphicBuffer(
                                 mInputFrameData, (mWidth * mHeight * 3) >> 1,
