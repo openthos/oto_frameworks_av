@@ -139,7 +139,10 @@ void NuPlayer::Decoder::onConfigure(const sp<AMessage> &format) {
     mComponentName.append(" decoder");
     ALOGV("[%s] onConfigure (surface=%p)", mComponentName.c_str(), surface.get());
 
-    mCodec = MediaCodec::CreateByType(mCodecLooper, mime.c_str(), false /* encoder */);
+    pid_t caller = 0;
+    format->findInt32("callerpid", &caller);
+    mCodec = MediaCodec::CreateByType(mCodecLooper, mime.c_str(), false /* encoder */,
+                                      NULL, caller);
     int32_t secure = 0;
     if (format->findInt32("secure", &secure) && secure != 0) {
         if (mCodec != NULL) {

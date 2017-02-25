@@ -87,6 +87,10 @@ status_t StagefrightPlayer::prepareAsync() {
 }
 
 status_t StagefrightPlayer::start() {
+    return start(0);
+}
+
+status_t StagefrightPlayer::start(pid_t caller) {
     ALOGV("start");
 
     return mPlayer->play();

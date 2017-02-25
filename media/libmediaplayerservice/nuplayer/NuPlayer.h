@@ -52,6 +52,7 @@ struct NuPlayer : public AHandler {
 
     void setAudioSink(const sp<MediaPlayerBase::AudioSink> &sink);
     void start();
+    void start(pid_t caller);
 
     void pause();
 
@@ -184,6 +185,8 @@ private:
     // true, mPaused is always true; if mPausedByClient is false, mPaused could
     // still become true, when we pause internally due to buffering.
     bool mPausedByClient;
+
+    pid_t mCaller;
 
     inline const sp<DecoderBase> &getDecoder(bool audio) {
         return audio ? mAudioDecoder : mVideoDecoder;

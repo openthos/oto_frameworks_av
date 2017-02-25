@@ -230,7 +230,8 @@ status_t OMX::listNodes(List<ComponentInfo> *list) {
 }
 
 status_t OMX::allocateNode(
-        const char *name, const sp<IOMXObserver> &observer, node_id *node) {
+        const char *name, const sp<IOMXObserver> &observer, node_id *node,
+        pid_t caller) {
     Mutex::Autolock autoLock(mLock);
 
     *node = 0;
@@ -240,7 +241,7 @@ status_t OMX::allocateNode(
     OMX_COMPONENTTYPE *handle;
     OMX_ERRORTYPE err = mMaster->makeComponentInstance(
             name, &OMXNodeInstance::kCallbacks,
-            instance, &handle);
+            instance, &handle, caller);
 
     if (err != OMX_ErrorNone) {
         ALOGE("FAILED to allocate omx component '%s'", name);

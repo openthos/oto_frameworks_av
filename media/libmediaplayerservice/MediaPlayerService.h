@@ -98,6 +98,7 @@ class MediaPlayerService : public BnMediaPlayerService
                 const audio_offload_info_t *offloadInfo = NULL);
 
         virtual status_t        start();
+        virtual status_t        start(pid_t caller);
         virtual ssize_t         write(const void* buffer, size_t size);
         virtual void            stop();
         virtual void            flush();
@@ -212,6 +213,7 @@ class MediaPlayerService : public BnMediaPlayerService
                 const audio_offload_info_t *offloadInfo = NULL);
 
         virtual status_t        start();
+        virtual status_t        start(pid_t caller);
         virtual ssize_t         write(const void* buffer, size_t size);
         virtual void            stop();
         virtual void            flush() {}
@@ -341,6 +343,7 @@ private:
                                         const sp<IGraphicBufferProducer>& bufferProducer);
         virtual status_t        prepareAsync();
         virtual status_t        start();
+        virtual status_t        start(pid_t caller);
         virtual status_t        stop();
         virtual status_t        pause();
         virtual status_t        isPlaying(bool* state);

@@ -182,7 +182,8 @@ NuPlayer::NuPlayer()
       mVideoScalingMode(NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW),
       mStarted(false),
       mPaused(false),
-      mPausedByClient(false) {
+      mPausedByClient(false),
+      mCaller(0) {
     clearFlushComplete();
 }
 
@@ -311,6 +312,11 @@ void NuPlayer::setAudioSink(const sp<MediaPlayerBase::AudioSink> &sink) {
 }
 
 void NuPlayer::start() {
+    start(0);
+}
+
+void NuPlayer::start(pid_t caller) {
+    mCaller = caller;
     (new AMessage(kWhatStart, id()))->post();
 }
 
@@ -1261,6 +1267,7 @@ status_t NuPlayer::instantiateDecoder(bool audio, sp<DecoderBase> *decoder) {
             }
         }
     }
+    format->setInt32("callerpid", mCaller);
     (*decoder)->init();
     (*decoder)->configure(format);
 

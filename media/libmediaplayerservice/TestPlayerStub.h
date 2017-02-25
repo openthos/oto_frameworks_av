@@ -84,6 +84,7 @@ class TestPlayerStub : public MediaPlayerInterface {
     virtual status_t prepare() {return mPlayer->prepare();}
     virtual status_t prepareAsync()  {return mPlayer->prepareAsync();}
     virtual status_t start()  {return mPlayer->start();}
+    virtual status_t start(pid_t caller)  {return mPlayer->start(caller);}
     virtual status_t stop()  {return mPlayer->stop();}
     virtual status_t pause()  {return mPlayer->pause();}
     virtual bool isPlaying() {return mPlayer->isPlaying();}

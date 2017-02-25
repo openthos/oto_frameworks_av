@@ -288,7 +288,7 @@ status_t Harness::testStateTransitions(
     IOMX::node_id node;
 
     status_t err =
-        mOMX->allocateNode(componentName, this, &node);
+        mOMX->allocateNode(componentName, this, &node, 0);
     EXPECT_SUCCESS(err, "allocateNode");
 
     NodeReaper reaper(this, node);

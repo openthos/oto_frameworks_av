@@ -290,6 +290,11 @@ status_t MediaPlayer::prepareAsync()
 
 status_t MediaPlayer::start()
 {
+    return start(0);
+}
+
+status_t MediaPlayer::start(pid_t caller)
+{
     ALOGV("start");
 
     status_t ret = NO_ERROR;
@@ -305,7 +310,7 @@ status_t MediaPlayer::start()
         mPlayer->setVolume(mLeftVolume, mRightVolume);
         mPlayer->setAuxEffectSendLevel(mSendLevel);
         mCurrentState = MEDIA_PLAYER_STARTED;
-        ret = mPlayer->start();
+        ret = mPlayer->start(caller);
         if (ret != NO_ERROR) {
             mCurrentState = MEDIA_PLAYER_STATE_ERROR;
         } else {

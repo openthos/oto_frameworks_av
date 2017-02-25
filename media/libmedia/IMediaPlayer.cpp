@@ -37,6 +37,7 @@ enum {
     SET_DATA_SOURCE_STREAM,
     PREPARE_ASYNC,
     START,
+    START_WITH_PID,
     STOP,
     IS_PLAYING,
     PAUSE,
@@ -143,7 +144,19 @@ public:
     {
         Parcel data, reply;
         data.writeInterfaceToken(IMediaPlayer::getInterfaceDescriptor());
-        remote()->transact(START, data, &reply);
+        /* remote()->transact(START, data, &reply); new interface instead of */
+        data.writeInt32(getpid());
+        remote()->transact(START_WITH_PID, data, &reply);
+        return reply.readInt32();
+    }
+
+    status_t start(pid_t caller)
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IMediaPlayer::getInterfaceDescriptor());
+        /* remote()->transact(START, data, &reply); new interface instead of */
+        data.writeInt32(caller);
+        remote()->transact(START_WITH_PID, data, &reply);
         return reply.readInt32();
     }
 
@@ -411,6 +424,12 @@ status_t BnMediaPlayer::onTransact(
         case START: {
             CHECK_INTERFACE(IMediaPlayer, data, reply);
             reply->writeInt32(start());
+            return NO_ERROR;
+        } break;
+        case START_WITH_PID: {
+            CHECK_INTERFACE(IMediaPlayer, data, reply);
+            int caller = data.readInt32();
+            reply->writeInt32(start(caller));
             return NO_ERROR;
         } break;
         case STOP: {

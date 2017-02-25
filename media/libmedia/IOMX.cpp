@@ -98,10 +98,12 @@ public:
     }
 
     virtual status_t allocateNode(
-            const char *name, const sp<IOMXObserver> &observer, node_id *node) {
+            const char *name, const sp<IOMXObserver> &observer, node_id *node,
+            pid_t caller) {
         Parcel data, reply;
         data.writeInterfaceToken(IOMX::getInterfaceDescriptor());
         data.writeCString(name);
+        data.writeInt32(caller);
         data.writeStrongBinder(observer->asBinder());
         remote()->transact(ALLOCATE_NODE, data, &reply);
 
@@ -566,13 +568,14 @@ status_t BnOMX::onTransact(
             CHECK_OMX_INTERFACE(IOMX, data, reply);
 
             const char *name = data.readCString();
+            pid_t caller = data.readInt32();
 
             sp<IOMXObserver> observer =
                 interface_cast<IOMXObserver>(data.readStrongBinder());
 
             node_id node;
 
-            status_t err = allocateNode(name, observer, &node);
+            status_t err = allocateNode(name, observer, &node, caller);
             reply->writeInt32(err);
             if (err == OK) {
                 reply->writeInt32((int32_t)node);

@@ -206,6 +206,11 @@ status_t MidiFile::prepareAsync()
 
 status_t MidiFile::start()
 {
+    return start(0);
+}
+
+status_t MidiFile::start(pid_t caller)
+{
     ALOGV("MidiFile::start");
     Mutex::Autolock lock(mMutex);
     if (!mEasHandle) {

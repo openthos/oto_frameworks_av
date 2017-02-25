@@ -54,7 +54,7 @@ public:
 
     virtual status_t allocateNode(
             const char *name, const sp<IOMXObserver> &observer,
-            node_id *node) = 0;
+            node_id *node, pid_t caller) = 0;
 
     virtual status_t freeNode(node_id node) = 0;
 
