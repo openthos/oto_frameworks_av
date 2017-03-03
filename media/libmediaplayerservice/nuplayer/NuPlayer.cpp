@@ -310,7 +310,8 @@ void NuPlayer::setAudioSink(const sp<MediaPlayerBase::AudioSink> &sink) {
     msg->post();
 }
 
-void NuPlayer::start() {
+void NuPlayer::start(bool noVideo) {
+    mVideoEOS = noVideo;
     (new AMessage(kWhatStart, id()))->post();
 }
 
@@ -1036,7 +1037,6 @@ status_t NuPlayer::onInstantiateSecureDecoders() {
 void NuPlayer::onStart() {
     mOffloadAudio = false;
     mAudioEOS = false;
-    mVideoEOS = false;
     mStarted = true;
 
     mSource->start();
@@ -1260,6 +1260,7 @@ status_t NuPlayer::instantiateDecoder(bool audio, sp<DecoderBase> *decoder) {
                 format->setInt32("auto-frc", 1);
             }
         }
+        format->setInt32("no-video", int32_t(mVideoEOS));
     }
     (*decoder)->init();
     (*decoder)->configure(format);

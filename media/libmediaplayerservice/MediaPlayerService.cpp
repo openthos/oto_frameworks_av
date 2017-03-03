@@ -946,6 +946,20 @@ status_t MediaPlayerService::Client::start()
     sp<MediaPlayerBase> p = getPlayer();
     if (p == 0) return UNKNOWN_ERROR;
     p->setLooping(mLoop);
+
+    const size_t SIZE = 256;
+    char buffer[SIZE];
+    snprintf(buffer, SIZE, "/proc/%d/cmdline", mPid);
+    if (FILE *f = fopen(buffer, "r")) {
+        fgets(buffer, SIZE, f);
+        fclose(f);
+        if (strstr(buffer, "org.mozilla.firefox") ||
+            strstr(buffer, "org.mozilla.fennec_root")) {
+            p->disableVideo();
+            ALOGD("disable video of %s", buffer);
+        }
+    }
+
     return p->start();
 }
 

@@ -179,6 +179,8 @@ public:
         return OK;
     }
 
+    virtual void disableVideo() { }
+
     // Invoke a generic method on the player by using opaque parcels
     // for the request and reply.
     //

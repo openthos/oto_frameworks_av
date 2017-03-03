@@ -139,6 +139,13 @@ void NuPlayer::Decoder::onConfigure(const sp<AMessage> &format) {
     mComponentName.append(" decoder");
     ALOGV("[%s] onConfigure (surface=%p)", mComponentName.c_str(), surface.get());
 
+    int32_t no_video = 0;
+    if (format->findInt32("no-video", &no_video) && no_video) {
+        ALOGW("stop video by request");
+        handleError(UNKNOWN_ERROR);
+        return;
+    }
+
     mCodec = MediaCodec::CreateByType(mCodecLooper, mime.c_str(), false /* encoder */);
     int32_t secure = 0;
     if (format->findInt32("secure", &secure) && secure != 0) {

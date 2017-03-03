@@ -51,7 +51,7 @@ struct NuPlayer : public AHandler {
             const sp<IGraphicBufferProducer> &bufferProducer);
 
     void setAudioSink(const sp<MediaPlayerBase::AudioSink> &sink);
-    void start();
+    void start(bool noVideo);
 
     void pause();
 

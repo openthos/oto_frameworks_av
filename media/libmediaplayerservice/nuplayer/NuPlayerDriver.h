@@ -75,6 +75,7 @@ struct NuPlayerDriver : public MediaPlayerInterface {
 
 protected:
     virtual ~NuPlayerDriver();
+    virtual void disableVideo();
 
 private:
     enum State {
@@ -115,6 +116,7 @@ private:
     bool mAtEOS;
     bool mLooping;
     bool mAutoLoop;
+    bool mVideoDisabled;
 
     int64_t mStartupSeekTimeUs;
 

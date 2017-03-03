@@ -45,6 +45,7 @@ NuPlayerDriver::NuPlayerDriver()
       mAtEOS(false),
       mLooping(false),
       mAutoLoop(false),
+      mVideoDisabled(false),
       mStartupSeekTimeUs(-1) {
     ALOGV("NuPlayerDriver(%p)", this);
     mLooper->setName("NuPlayerDriver Looper");
@@ -63,6 +64,11 @@ NuPlayerDriver::NuPlayerDriver()
 NuPlayerDriver::~NuPlayerDriver() {
     ALOGV("~NuPlayerDriver(%p)", this);
     mLooper->stop();
+}
+
+void NuPlayerDriver::disableVideo()
+{
+    mVideoDisabled = true;
 }
 
 status_t NuPlayerDriver::initCheck() {
@@ -253,7 +259,7 @@ status_t NuPlayerDriver::start() {
         case STATE_PREPARED:
         {
             mAtEOS = false;
-            mPlayer->start();
+            mPlayer->start(mVideoDisabled);
 
             if (mStartupSeekTimeUs >= 0) {
                 mPlayer->seekToAsync(mStartupSeekTimeUs);
