@@ -113,11 +113,10 @@ void MediaCodec::BatteryNotifier::noteStopAudio() {
 }
 // static
 sp<MediaCodec> MediaCodec::CreateByType(
-        const sp<ALooper> &looper, const char *mime, bool encoder, status_t *err,
-        pid_t caller) {
+        const sp<ALooper> &looper, const char *mime, bool encoder, status_t *err) {
     sp<MediaCodec> codec = new MediaCodec(looper);
 
-    const status_t ret = codec->init(mime, true /* nameIsType */, encoder, caller);
+    const status_t ret = codec->init(mime, true /* nameIsType */, encoder);
     if (err != NULL) {
         *err = ret;
     }
@@ -129,8 +128,7 @@ sp<MediaCodec> MediaCodec::CreateByComponentName(
         const sp<ALooper> &looper, const char *name, status_t *err) {
     sp<MediaCodec> codec = new MediaCodec(looper);
 
-    const status_t ret = codec->init(name, false /* nameIsType */, false /* encoder */,
-                                     0);
+    const status_t ret = codec->init(name, false /* nameIsType */, false /* encoder */);
     if (err != NULL) {
         *err = ret;
     }
@@ -151,8 +149,7 @@ MediaCodec::MediaCodec(const sp<ALooper> &looper)
       mDequeueInputReplyID(0),
       mDequeueOutputTimeoutGeneration(0),
       mDequeueOutputReplyID(0),
-      mHaveInputSurface(false),
-      mCaller(0) {
+      mHaveInputSurface(false) {
 }
 
 MediaCodec::~MediaCodec() {
@@ -182,14 +179,12 @@ void MediaCodec::PostReplyWithError(int32_t replyID, int32_t err) {
     response->postReply(replyID);
 }
 
-status_t MediaCodec::init(const AString &name, bool nameIsType, bool encoder,
-                          pid_t caller) {
+status_t MediaCodec::init(const AString &name, bool nameIsType, bool encoder) {
     // save init parameters for reset
     mInitName = name;
     mInitNameIsType = nameIsType;
     mInitIsEncoder = encoder;
 
-    mCaller = caller;
     // Current video decoders do not return from OMX_FillThisBuffer
     // quickly, violating the OpenMAX specs, until that is remedied
     // we need to invest in an extra looper to free the main event
@@ -362,7 +357,7 @@ status_t MediaCodec::reset() {
     mHaveInputSurface = false;
 
     if (err == OK) {
-        err = init(mInitName, mInitNameIsType, mInitIsEncoder, mCaller);
+        err = init(mInitName, mInitNameIsType, mInitIsEncoder);
     }
     return err;
 }
@@ -1222,7 +1217,6 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
             } else {
                 format->setString("componentName", name.c_str());
             }
-            format->setInt32("callerpid", mCaller);
 
             mCodec->initiateAllocateComponent(format);
             break;

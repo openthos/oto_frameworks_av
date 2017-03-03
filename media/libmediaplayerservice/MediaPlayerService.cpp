@@ -942,16 +942,11 @@ status_t MediaPlayerService::Client::prepareAsync()
 
 status_t MediaPlayerService::Client::start()
 {
-    return start(0);
-}
-
-status_t MediaPlayerService::Client::start(pid_t caller)
-{
     ALOGV("[%d] start", mConnId);
     sp<MediaPlayerBase> p = getPlayer();
     if (p == 0) return UNKNOWN_ERROR;
     p->setLooping(mLoop);
-    return p->start(caller);
+    return p->start();
 }
 
 status_t MediaPlayerService::Client::stop()
@@ -1771,11 +1766,6 @@ status_t MediaPlayerService::AudioOutput::open(
 
 status_t MediaPlayerService::AudioOutput::start()
 {
-    return start(0);
-}
-
-status_t MediaPlayerService::AudioOutput::start(pid_t caller)
-{
     ALOGV("start");
     if (mCallbackData != NULL) {
         mCallbackData->endTrackSwitch();
@@ -2097,10 +2087,6 @@ status_t MediaPlayerService::AudioCache::open(
 }
 
 status_t MediaPlayerService::AudioCache::start() {
-    return start(0);
-}
-
-status_t MediaPlayerService::AudioCache::start(pid_t caller) {
     if (mCallbackThread != NULL) {
         mCallbackThread->run("AudioCache callback");
     }

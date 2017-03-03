@@ -45,7 +45,7 @@ struct MuxOMX : public IOMX {
 
     virtual status_t allocateNode(
             const char *name, const sp<IOMXObserver> &observer,
-            node_id *node, pid_t caller);
+            node_id *node);
 
     virtual status_t freeNode(node_id node);
 
@@ -208,7 +208,7 @@ status_t MuxOMX::listNodes(List<ComponentInfo> *list) {
 
 status_t MuxOMX::allocateNode(
         const char *name, const sp<IOMXObserver> &observer,
-        node_id *node, pid_t caller) {
+        node_id *node) {
     Mutex::Autolock autoLock(mLock);
 
     sp<IOMX> omx;
@@ -222,7 +222,7 @@ status_t MuxOMX::allocateNode(
         omx = mRemoteOMX;
     }
 
-    status_t err = omx->allocateNode(name, observer, node, caller);
+    status_t err = omx->allocateNode(name, observer, node);
 
     if (err != OK) {
         return err;

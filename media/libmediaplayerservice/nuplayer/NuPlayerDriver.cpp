@@ -222,10 +222,6 @@ status_t NuPlayerDriver::prepareAsync() {
 }
 
 status_t NuPlayerDriver::start() {
-    return start(0);
-}
-
-status_t NuPlayerDriver::start(pid_t caller) {
     ALOGD("start(%p)", this);
     Mutex::Autolock autoLock(mLock);
 
@@ -257,7 +253,7 @@ status_t NuPlayerDriver::start(pid_t caller) {
         case STATE_PREPARED:
         {
             mAtEOS = false;
-            mPlayer->start(caller);
+            mPlayer->start();
 
             if (mStartupSeekTimeUs >= 0) {
                 mPlayer->seekToAsync(mStartupSeekTimeUs);

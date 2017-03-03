@@ -47,7 +47,6 @@ public:
     virtual status_t prepare();
     virtual status_t prepareAsync();
     virtual status_t start();
-    virtual status_t start(pid_t caller);
     virtual status_t stop();
     virtual status_t pause();
     virtual bool isPlaying();

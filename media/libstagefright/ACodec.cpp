@@ -4889,8 +4889,6 @@ bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
     sp<CodecObserver> observer = new CodecObserver;
     IOMX::node_id node = NULL;
 
-    pid_t caller = 0;
-    msg->findInt32("callerpid", &caller);
     for (size_t matchIndex = 0; matchIndex < matchingCodecs.size();
             ++matchIndex) {
         componentName = matchingCodecs.itemAt(matchIndex).mName.string();
@@ -4899,7 +4897,7 @@ bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
         pid_t tid = androidGetTid();
         int prevPriority = androidGetThreadPriority(tid);
         androidSetThreadPriority(tid, ANDROID_PRIORITY_FOREGROUND);
-        status_t err = omx->allocateNode(componentName.c_str(), observer, &node, caller);
+        status_t err = omx->allocateNode(componentName.c_str(), observer, &node);
         androidSetThreadPriority(tid, prevPriority);
 
         if (err == OK) {

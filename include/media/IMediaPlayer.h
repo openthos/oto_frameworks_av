@@ -53,7 +53,6 @@ public:
                                     const sp<IGraphicBufferProducer>& bufferProducer) = 0;
     virtual status_t        prepareAsync() = 0;
     virtual status_t        start() = 0;
-    virtual status_t        start(pid_t caller) = 0;
     virtual status_t        stop() = 0;
     virtual status_t        pause() = 0;
     virtual status_t        isPlaying(bool* state) = 0;

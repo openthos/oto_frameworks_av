@@ -25,10 +25,6 @@
 #include <media/stagefright/foundation/AString.h>
 
 #include <dlfcn.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <fcntl.h>
 
 namespace android {
 
@@ -44,7 +40,7 @@ static const struct {
     { "OMX.google.amrnb.encoder", "amrnbenc", "audio_encoder.amrnb" },
     { "OMX.google.amrwb.decoder", "amrdec", "audio_decoder.amrwb" },
     { "OMX.google.amrwb.encoder", "amrwbenc", "audio_encoder.amrwb" },
-    { "OMX.google.h264.decoder", NULL, "video_decoder.avc" },
+    { "OMX.google.h264.decoder", "avcdec", "video_decoder.avc" },
     { "OMX.google.h264.encoder", "avcenc", "video_encoder.avc" },
     { "OMX.google.hevc.decoder", "hevcdec", "video_decoder.hevc" },
     { "OMX.google.g711.alaw.decoder", "g711dec", "audio_decoder.g711alaw" },
@@ -71,50 +67,11 @@ static const size_t kNumComponents =
 SoftOMXPlugin::SoftOMXPlugin() {
 }
 
-static int isFennecProcess(int caller)
-{
-#define CMD_PATH_MAX       0x200
-#define SHORT_LENGTH       0x20
-#define TEMP_FILE_NAME_FMT "/mnt/tmp/media_%d"
-#define PID_CMD_FMT "ps | grep org.mozilla.fennec_root | awk '{print $2}' > %s"
-
-    int fd;
-    int ret;
-    pid_t pid;
-    char buf[SHORT_LENGTH];
-    char filename[SHORT_LENGTH];
-    char cmd[CMD_PATH_MAX];
-
-    sprintf(filename, TEMP_FILE_NAME_FMT, pid);
-    sprintf(cmd, PID_CMD_FMT, filename);
-
-    if (system(cmd)) {
-        ALOGE("OPENTHOS: command failed: %s", cmd);
-    }
-    fd = open(filename, O_RDONLY);
-    if (fd == -1) {
-        ALOGE("OPENTHOS: open file failed: %s", filename);
-        return false;
-    }
-    ret = read(fd, buf, sizeof(buf) - 1);
-    if (ret <= 0) {
-        ALOGE("OPENTHOS: read file failed: %s", filename);
-        close(fd);
-        return false;
-    }
-    buf[ret] = '\0';
-    close(fd);
-
-    sscanf(buf, "%d", &pid);
-    return pid == caller;
-}
-
 OMX_ERRORTYPE SoftOMXPlugin::makeComponentInstance(
         const char *name,
         const OMX_CALLBACKTYPE *callbacks,
         OMX_PTR appData,
-        OMX_COMPONENTTYPE **component,
-        pid_t caller) {
+        OMX_COMPONENTTYPE **component) {
     ALOGV("makeComponentInstance '%s'", name);
 
     for (size_t i = 0; i < kNumComponents; ++i) {
@@ -123,11 +80,7 @@ OMX_ERRORTYPE SoftOMXPlugin::makeComponentInstance(
         }
 
         AString libName = "libstagefright_soft_";
-        if (kComponents[i].mLibNameSuffix) {
-            libName.append(kComponents[i].mLibNameSuffix);
-        } else {
-            libName.append(isFennecProcess(caller) ? "h264dec" : "avcdec");
-        }
+        libName.append(kComponents[i].mLibNameSuffix);
         libName.append(".so");
 
         void *libHandle = dlopen(libName.c_str(), RTLD_NOW);

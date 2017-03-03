@@ -36,8 +36,7 @@ public:
     virtual status_t listNodes(List<ComponentInfo> *list);
 
     virtual status_t allocateNode(
-            const char *name, const sp<IOMXObserver> &observer, node_id *node,
-            pid_t caller);
+            const char *name, const sp<IOMXObserver> &observer, node_id *node);
 
     virtual status_t freeNode(node_id node);
 

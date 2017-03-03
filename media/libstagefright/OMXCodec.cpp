@@ -363,7 +363,7 @@ sp<MediaSource> OMXCodec::Create(
             }
         }
 
-        status_t err = omx->allocateNode(componentName, observer, &node, 0);
+        status_t err = omx->allocateNode(componentName, observer, &node);
         if (err == OK) {
             ALOGV("Successfully allocated OMX node '%s'", componentName);
 
@@ -4496,7 +4496,7 @@ status_t QueryCodec(
 
     sp<OMXCodecObserver> observer = new OMXCodecObserver;
     IOMX::node_id node;
-    status_t err = omx->allocateNode(componentName, observer, &node, 0);
+    status_t err = omx->allocateNode(componentName, observer, &node);
 
     if (err != OK) {
         return err;

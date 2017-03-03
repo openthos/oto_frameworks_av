@@ -122,8 +122,7 @@ OMX_ERRORTYPE OMXMaster::makeComponentInstance(
         const char *name,
         const OMX_CALLBACKTYPE *callbacks,
         OMX_PTR appData,
-        OMX_COMPONENTTYPE **component,
-        pid_t caller) {
+        OMX_COMPONENTTYPE **component) {
     Mutex::Autolock autoLock(mLock);
 
     *component = NULL;
@@ -136,7 +135,7 @@ OMX_ERRORTYPE OMXMaster::makeComponentInstance(
 
     OMXPluginBase *plugin = mPluginByComponentName.valueAt(index);
     OMX_ERRORTYPE err =
-        plugin->makeComponentInstance(name, callbacks, appData, component, caller);
+        plugin->makeComponentInstance(name, callbacks, appData, component);
 
     if (err != OMX_ErrorNone) {
         return err;

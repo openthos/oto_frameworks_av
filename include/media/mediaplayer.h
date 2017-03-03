@@ -217,7 +217,6 @@ public:
             status_t        prepare();
             status_t        prepareAsync();
             status_t        start();
-            status_t        start(pid_t caller);
             status_t        stop();
             status_t        pause();
             bool            isPlaying();

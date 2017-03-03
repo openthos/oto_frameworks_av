@@ -30,8 +30,7 @@ struct SoftOMXPlugin : public OMXPluginBase {
             const char *name,
             const OMX_CALLBACKTYPE *callbacks,
             OMX_PTR appData,
-            OMX_COMPONENTTYPE **component,
-            pid_t caller);
+            OMX_COMPONENTTYPE **component);
 
     virtual OMX_ERRORTYPE destroyComponentInstance(
             OMX_COMPONENTTYPE *component);

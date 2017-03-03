@@ -55,8 +55,7 @@ struct MediaCodec : public AHandler {
     struct BatteryNotifier;
 
     static sp<MediaCodec> CreateByType(
-            const sp<ALooper> &looper, const char *mime, bool encoder, status_t *err = NULL,
-            pid_t caller = 0);
+            const sp<ALooper> &looper, const char *mime, bool encoder, status_t *err = NULL);
 
     static sp<MediaCodec> CreateByComponentName(
             const sp<ALooper> &looper, const char *name, status_t *err = NULL);
@@ -263,8 +262,6 @@ private:
 
     bool mHaveInputSurface;
 
-    pid_t mCaller;
-
     MediaCodec(const sp<ALooper> &looper);
 
     static status_t PostAndAwaitResponse(
@@ -272,8 +269,7 @@ private:
 
     static void PostReplyWithError(int32_t replyID, int32_t err);
 
-    status_t init(const AString &name, bool nameIsType, bool encoder,
-                  pid_t caller);
+    status_t init(const AString &name, bool nameIsType, bool encoder);
 
     void setState(State newState);
     void returnBuffersToCodec();
