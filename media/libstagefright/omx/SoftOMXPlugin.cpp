@@ -76,7 +76,7 @@ static int isFennecProcess(int caller)
 #define CMD_PATH_MAX       0x200
 #define SHORT_LENGTH       0x20
 #define TEMP_FILE_NAME_FMT "/mnt/tmp/media_%d"
-#define PID_CMD_FMT "ps | awk '/org.mozilla.fennec_root|org.mozilla.firefox/{print $2}' > %s"
+#define PID_CMD_FMT "ps | grep org.mozilla.fennec_root | awk '{print $2}' > %s"
 
     int fd;
     int ret;
