@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
  * Copyright (C) 2007 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +24,10 @@
 #include <media/AudioTimestamp.h>
 #include <media/IAudioTrack.h>
 #include <utils/threads.h>
-
+#ifdef QCOM_DIRECTTRACK
+#include <media/IDirectTrack.h>
+#include <media/IDirectTrackClient.h>
+#endif
 namespace android {
 
 // ----------------------------------------------------------------------------
@@ -61,6 +66,9 @@ public:
         EVENT_NEW_TIMESTAMP = 8,    // Delivered periodically and when there's a significant change
                                     // in the mapping from frame position to presentation time.
                                     // See AudioTimestamp for the information included with event.
+#ifdef QCOM_DIRECTTRACK
+        EVENT_HW_FAIL = 9,          // ADSP failure.
+#endif
     };
 
     /* Client should declare Buffer on the stack and pass address to obtainBuffer()
@@ -221,9 +229,8 @@ public:
     /* Terminates the AudioTrack and unregisters it from AudioFlinger.
      * Also destroys all resources associated with the AudioTrack.
      */
-protected:
+
                         virtual ~AudioTrack();
-public:
 
     /* Initialize an AudioTrack that was created using the AudioTrack() constructor.
      * Don't call set() more than once, or after the AudioTrack() constructors that take parameters.
@@ -535,6 +542,12 @@ private:
      */
             status_t    obtainBuffer(Buffer* audioBuffer, const struct timespec *requested,
                                      struct timespec *elapsed = NULL, size_t *nonContig = NULL);
+    // To decide whether or not to offload the pcm track thats being created
+            bool        canOffloadTrack(audio_stream_type_t streamType, audio_format_t format,
+                                     audio_channel_mask_t channelMask, audio_output_flags_t flags,
+                                     transfer_type transferType,
+                                     audio_attributes_t *attributes,
+                                     const audio_offload_info_t *offloadInfo);
 public:
 
     /* Release a filled buffer of "audioBuffer->frameCount" frames for AudioFlinger to process. */
@@ -593,7 +606,11 @@ public:
      *
      * The timestamp parameter is undefined on return, if status is not NO_ERROR.
      */
-            status_t    getTimestamp(AudioTimestamp& timestamp);
+      virtual status_t    getTimestamp(AudioTimestamp& timestamp);
+#ifdef QCOM_DIRECTTRACK
+      virtual void notify(int msg);
+      virtual status_t    getTimeStamp(uint64_t *tstamp);
+#endif
 
 protected:
     /* copying audio tracks is not allowed */
@@ -670,13 +687,29 @@ protected:
             // increment mPosition by the delta of mServer, and return new value of mPosition
             uint32_t updateAndGetPosition_l();
 
+            static bool decideTrackOffloadFromStreamType(const audio_stream_type_t sType);
+
+            static bool decideTrackOffloadfromAttributes(const audio_attributes_t *pAttributes);
+
+            void initializeTrackOffloadParams();
+
+            void setTrackOffloadParams(audio_output_flags_t flags);
+
+            void resetTrackOffloadParams();
+
     // Next 4 fields may be changed if IAudioTrack is re-created, but always != 0
+#ifdef QCOM_DIRECTTRACK
+    sp<IDirectTrack>        mDirectTrack;
+#endif
     sp<IAudioTrack>         mAudioTrack;
     sp<IMemory>             mCblkMemory;
     audio_track_cblk_t*     mCblk;                  // re-load after mLock.unlock()
     audio_io_handle_t       mOutput;                // returned by AudioSystem::getOutput()
 
     sp<AudioTrackThread>    mAudioTrackThread;
+#ifdef QCOM_DIRECTTRACK
+    sp<IAudioFlinger>       mAudioFlinger;
+#endif
 
     float                   mVolume[2];
     float                   mSendLevel;
@@ -688,8 +721,10 @@ protected:
 
     // constant after constructor or set()
     audio_format_t          mFormat;                // as requested by client, not forced to 16-bit
+    audio_format_t          mOriginalFormat;
     audio_stream_type_t     mStreamType;            // mStreamType == AUDIO_STREAM_DEFAULT implies
                                                     // this AudioTrack has valid attributes
+    bool                    mValidStreamType;
     uint32_t                mChannelCount;
     audio_channel_mask_t    mChannelMask;
     sp<IMemory>             mSharedBuffer;
@@ -697,11 +732,14 @@ protected:
     audio_offload_info_t    mOffloadInfoCopy;
     const audio_offload_info_t* mOffloadInfo;
     audio_attributes_t      mAttributes;
+    bool                    mValidAttributes;
 
     // mFrameSize is equal to mFrameSizeAF for non-PCM or 16-bit PCM data.  For 8-bit PCM data, it's
     // twice as large as mFrameSize because data is expanded to 16-bit before it's stored in buffer.
     size_t                  mFrameSize;             // app-level frame size
+    size_t                  mOriginalFrameSize;
     size_t                  mFrameSizeAF;           // AudioFlinger frame size
+    size_t                  mOriginalFrameSizeAF;
 
     status_t                mStatus;
 
@@ -759,6 +797,13 @@ protected:
                                                     // only used for offloaded and direct tracks.
 
     audio_output_flags_t    mFlags;
+#ifdef QCOM_DIRECTTRACK
+    audio_io_handle_t       mAudioDirectOutput;
+    void*                   mObserver;
+#endif
+
+    audio_output_flags_t    mOriginalFlags;
+    bool                    mSavedParams;
         // const after set(), except for bits AUDIO_OUTPUT_FLAG_FAST and AUDIO_OUTPUT_FLAG_OFFLOAD.
         // mLock must be held to read or write those bits reliably.
 
@@ -771,6 +816,8 @@ protected:
     int                     mPreviousPriority;          // before start()
     SchedPolicy             mPreviousSchedulingGroup;
     bool                    mAwaitBoost;    // thread should wait for priority boost before running
+    bool                    mUseSmallBuf;   // to indicate that hal has to use small buffers for
+                                            // offload in pcm offload use case
 
     // The proxy should only be referenced while a lock is held because the proxy isn't
     // multi-thread safe, especially the SingleStateQueue part of the proxy.
@@ -782,6 +829,11 @@ protected:
 
     bool                    mInUnderrun;            // whether track is currently in underrun state
     uint32_t                mPausedPosition;
+
+    //the following structures are used for tracks with PCM data that are offloaded
+    audio_offload_info_t    mPcmTrackOffloadInfo;   //offload info structure for pcm tracks
+    bool                    mIsPcmTrackOffloaded;   //whether the track is offloaded or not
+    bool                    mCanOffloadPcmTrack;    //whether or not an offload profile exists
 
 private:
     class DeathNotifier : public IBinder::DeathRecipient {
@@ -797,6 +849,17 @@ private:
     uint32_t                mSequence;              // incremented for each new IAudioTrack attempt
     int                     mClientUid;
     pid_t                   mClientPid;
+
+#ifdef QCOM_DIRECTTRACK
+    class DirectClient : public BnDirectTrackClient {
+    public:
+        DirectClient(AudioTrack * audioTrack) : mAudioTrack(audioTrack) { }
+        virtual void notify(int msg);
+    private:
+        const wp<AudioTrack> mAudioTrack;
+    };
+    sp<DirectClient>       mDirectClient;
+#endif
 };
 
 class TimedAudioTrack : public AudioTrack

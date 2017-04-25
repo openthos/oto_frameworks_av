@@ -131,6 +131,8 @@ void NuPlayer::RTSPSource::pause() {
 
         // Check if EOS or ERROR is received
         if (source != NULL && source->isFinished(mediaDurationUs)) {
+            ALOGI("Nearing EOS...No Pause is issued");
+            mHandler->setAUTimeoutCheck(false);
             return;
         }
     }
@@ -161,6 +163,7 @@ bool NuPlayer::RTSPSource::haveSufficientDataOnAllTracks() {
     // starting playback (both at startup and after a seek).
 
     static const int64_t kMinDurationUs = 2000000ll;
+    static const size_t kMinAudioBufferCount = 6;
 
     int64_t mediaDurationUs = 0;
     getDuration(&mediaDurationUs);
@@ -177,6 +180,16 @@ bool NuPlayer::RTSPSource::haveSufficientDataOnAllTracks() {
             && err == OK) {
         ALOGV("audio track doesn't have enough data yet. (%.2f secs buffered)",
               durationUs / 1E6);
+        return false;
+    }
+
+    int bufferCount;
+    if (mAudioTrack != NULL
+            && (bufferCount = mAudioTrack->getBufferCount(&err))
+                    < kMinAudioBufferCount
+            && err == OK) {
+        ALOGV("audio track doesn't have enough data yet. (%d buffers buffered)",
+                bufferCount);
         return false;
     }
 
@@ -307,6 +320,24 @@ void NuPlayer::RTSPSource::performSeek(int64_t seekTimeUs) {
 
     mState = SEEKING;
     mHandler->seek(seekTimeUs);
+
+    // After seek, the previous packets in the source are obsolete, so clear them
+    for (size_t index = 0; index < mTracks.size(); index++) {
+        TrackInfo *info = &mTracks.editItemAt(index);
+        sp<AnotherPacketSource> source = info->mSource;
+        if (source != NULL) {
+            //TBD: Praveen . DISCONTINUITY_SEEK is deprecated. huiy to check
+            //source->queueDiscontinuity(ATSParser::DISCONTINUITY_SEEK, NULL, true);
+        }
+    }
+}
+
+int64_t NuPlayer::RTSPSource::getServerTimeoutUs() {
+    if (mHandler != NULL) {
+        return mHandler->getServerTimeoutUs();
+    } else {
+        return 0;
+    }
 }
 
 void NuPlayer::RTSPSource::onMessageReceived(const sp<AMessage> &msg) {
@@ -373,6 +404,11 @@ void NuPlayer::RTSPSource::onMessageReceived(const sp<AMessage> &msg) {
 
         case MyHandler::kWhatAccessUnit:
         {
+            // While seeking, stop queueing the units which are already obsolete to the source
+            if (mState == SEEKING) {
+                break;
+            }
+
             size_t trackIndex;
             CHECK(msg->findSize("trackIndex", &trackIndex));
 
@@ -433,8 +469,9 @@ void NuPlayer::RTSPSource::onMessageReceived(const sp<AMessage> &msg) {
                 if (!info->mNPTMappingValid) {
                     // This is a live stream, we didn't receive any normal
                     // playtime mapping. We won't map to npt time.
-                    source->queueAccessUnit(accessUnit);
-                    break;
+                    info->mRTPTime = rtpTime;
+                    info->mNormalPlaytimeUs = 0ll;
+                    info->mNPTMappingValid = true;
                 }
 
                 int64_t nptUs =

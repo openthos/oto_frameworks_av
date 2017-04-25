@@ -112,7 +112,7 @@ void SoftMP3::initPorts() {
 void SoftMP3::initDecoder() {
     mConfig->equalizerType = flat;
     mConfig->crcEnabled = false;
-
+    mConfig->samplingRate = mSamplingRate;
     uint32_t memRequirements = pvmp3_decoderMemRequirements();
     mDecoderBuf = malloc(memRequirements);
 
@@ -122,7 +122,7 @@ void SoftMP3::initDecoder() {
 
 void *SoftMP3::memsetSafe(OMX_BUFFERHEADERTYPE *outHeader, int c, size_t len) {
     if (len > outHeader->nAllocLen) {
-        ALOGE("memset buffer too small: got %u, expected %zu", outHeader->nAllocLen, len);
+        ALOGE("memset buffer too small: got %lu, expected %zu", outHeader->nAllocLen, len);
         android_errorWriteLog(0x534e4554, "29422022");
         notify(OMX_EventError, OMX_ErrorUndefined, OUTPUT_BUFFER_TOO_SMALL, NULL);
         mSignalledError = true;
@@ -294,10 +294,13 @@ void SoftMP3::onQueueFilled(OMX_U32 /* portIndex */) {
             if (decoderErr != NO_ENOUGH_MAIN_DATA_ERROR
                         && decoderErr != SIDE_INFO_ERROR) {
                 ALOGE("mp3 decoder returned error %d", decoderErr);
-
-                notify(OMX_EventError, OMX_ErrorUndefined, decoderErr, NULL);
-                mSignalledError = true;
-                return;
+                if(decoderErr == SYNCH_LOST_ERROR) {
+                    mConfig->outputFrameSize = kOutputBufferSize / sizeof(int16_t);
+                } else {
+                    notify(OMX_EventError, OMX_ErrorUndefined, decoderErr, NULL);
+                    mSignalledError = true;
+                    return;
+                }
             }
 
             if (mConfig->outputFrameSize == 0) {
@@ -314,18 +317,12 @@ void SoftMP3::onQueueFilled(OMX_U32 /* portIndex */) {
                     if (!memsetSafe(outHeader, 0, outHeader->nFilledLen)) {
                         return;
                     }
-
                 }
                 outHeader->nFlags = OMX_BUFFERFLAG_EOS;
                 mSignalledOutputEos = true;
             } else {
                 // This is recoverable, just ignore the current frame and
                 // play silence instead.
-
-                // TODO: should we skip silence (and consume input data)
-                // if mIsFirst is true as we may not have a valid
-                // mConfig->samplingRate and mConfig->num_channels?
-                ALOGV_IF(mIsFirst, "insufficient data for first frame, sending silence");
                 if (!memsetSafe(outHeader, 0, mConfig->outputFrameSize * sizeof(int16_t))) {
                     return;
                 }
@@ -360,7 +357,8 @@ void SoftMP3::onQueueFilled(OMX_U32 /* portIndex */) {
         }
 
         outHeader->nTimeStamp =
-            mAnchorTimeUs + (mNumFramesOutput * 1000000ll) / mSamplingRate;
+            mAnchorTimeUs
+                + (mNumFramesOutput * 1000000ll) / mConfig->samplingRate;
 
         if (inHeader) {
             CHECK_GE(inHeader->nFilledLen, mConfig->inputBufferUsedLength);

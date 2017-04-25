@@ -25,6 +25,7 @@
 #include <time.h>
 #include <math.h>
 #include <audio_effects/effect_visualizer.h>
+#include <cutils/log.h>
 
 
 extern "C" {
@@ -61,6 +62,7 @@ enum visualizer_state_e {
 // maximum number of buffers for which we keep track of the measurements
 #define MEASUREMENT_WINDOW_MAX_SIZE_IN_BUFFERS 25 // note: buffer index is stored in uint8_t
 
+#define MEASUREMENT_COUNT 2
 
 struct BufferStats {
     bool mIsValid;
@@ -599,6 +601,14 @@ int Visualizer_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         } break;
 
     case VISUALIZER_CMD_MEASURE: {
+        if (pReplyData == NULL || replySize == NULL ||
+                *replySize < (sizeof(int32_t) * MEASUREMENT_COUNT)) {
+            ALOGV("VISUALIZER_CMD_MEASURE() error *replySize %" PRIu32
+                    " < (sizeof(int32_t) * MEASUREMENT_COUNT) %" PRIu32, *replySize,
+                    sizeof(int32_t) * MEASUREMENT_COUNT);
+            android_errorWriteLog(0x534e4554, "30229821");
+            return -EINVAL;
+        }
         uint16_t peakU16 = 0;
         float sumRmsSquared = 0.0f;
         uint8_t nbValidMeasurements = 0;

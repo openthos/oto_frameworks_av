@@ -77,7 +77,10 @@ ID3::ID3(const uint8_t *data, size_t size, bool ignoreV1)
       mFirstFrameOffset(0),
       mVersion(ID3_UNKNOWN),
       mRawSize(0) {
-    sp<MemorySource> source = new MemorySource(data, size);
+    sp<MemorySource> source = new (std::nothrow) MemorySource(data, size);
+
+    if (source == NULL)
+        return;
 
     mIsValid = parseV2(source, 0);
 
@@ -503,8 +506,9 @@ void ID3::Iterator::getString(String8 *id, String8 *comment) const {
 void ID3::Iterator::getstring(String8 *id, bool otherdata) const {
     id->setTo("");
 
-    const uint8_t *frameData = mFrameData;
-    if (frameData == NULL) {
+    size_t size;
+    const uint8_t *frameData = getData(&size);
+    if ((size == 0) || (frameData == NULL)) {
         return;
     }
 
@@ -542,6 +546,10 @@ void ID3::Iterator::getstring(String8 *id, bool otherdata) const {
         n -= skipped;
     }
 
+    if (n <= 0) {
+       return;
+    }
+
     if (encoding == 0x00) {
         // supposedly ISO 8859-1
         id->setTo((const char*)frameData + 1, n);
@@ -555,11 +563,16 @@ void ID3::Iterator::getstring(String8 *id, bool otherdata) const {
         const char16_t *framedata = (const char16_t *) (frameData + 1);
         char16_t *framedatacopy = NULL;
 #if BYTE_ORDER == LITTLE_ENDIAN
-        framedatacopy = new char16_t[len];
-        for (int i = 0; i < len; i++) {
-            framedatacopy[i] = bswap_16(framedata[i]);
+        if (len > 0) {
+            framedatacopy = new (std::nothrow) char16_t[len];
+            if (framedatacopy == NULL) {
+                return;
+            }
+            for (int i = 0; i < len; i++) {
+                framedatacopy[i] = bswap_16(framedata[i]);
+            }
+            framedata = framedatacopy;
         }
-        framedata = framedatacopy;
 #endif
         id->setTo(framedata, len);
         if (framedatacopy != NULL) {
@@ -572,15 +585,26 @@ void ID3::Iterator::getstring(String8 *id, bool otherdata) const {
         const char16_t *framedata = (const char16_t *) (frameData + 1);
         char16_t *framedatacopy = NULL;
         if (*framedata == 0xfffe) {
-            // endianness marker doesn't match host endianness, convert
-            framedatacopy = new char16_t[len];
+            // endianness marker != host endianness, convert & skip
+            if (len <= 1) {
+                return;         // nothing after the marker
+            }
+            framedatacopy = new (std::nothrow) char16_t[len];
+            if (framedatacopy == NULL) {
+                return;
+            }
             for (int i = 0; i < len; i++) {
                 framedatacopy[i] = bswap_16(framedata[i]);
             }
             framedata = framedatacopy;
-        }
-        // If the string starts with an endianness marker, skip it
-        if (*framedata == 0xfeff) {
+            // and skip over the marker
+            framedata++;
+            len--;
+        } else if (*framedata == 0xfeff) {
+            // endianness marker == host endianness, skip it
+            if (len <= 1) {
+                return;         // nothing after the marker
+            }
             framedata++;
             len--;
         }
@@ -595,12 +619,16 @@ void ID3::Iterator::getstring(String8 *id, bool otherdata) const {
         }
         if (eightBit) {
             // collapse to 8 bit, then let the media scanner client figure out the real encoding
-            char *frame8 = new char[len];
-            for (int i = 0; i < len; i++) {
-                frame8[i] = framedata[i];
+            char *frame8 = new (std::nothrow) char[len];
+            if (frame8 != NULL) {
+                for (int i = 0; i < len; i++) {
+                    frame8[i] = framedata[i];
+                }
+                id->setTo(frame8, len);
+                delete [] frame8;
+            } else {
+                id->setTo(framedata, len);
             }
-            id->setTo(frame8, len);
-            delete [] frame8;
         } else {
             id->setTo(framedata, len);
         }
@@ -700,7 +728,10 @@ void ID3::Iterator::findFrame() {
             }
 
             if (baseSize == 0) {
-                return;
+                /* Don't try to parse a frame with zero-sized data. Skip this
+                 * header entirely */
+                mOffset += 10; // http://id3.org/id3v2.4.0-structure section 3.1
+		continue;
             }
 
             // Prevent integer overflow when adding
@@ -835,8 +866,8 @@ ID3::getAlbumArt(size_t *length, String8 *mime) const {
             mime->setTo((const char *)&data[1]);
             size_t mimeLen = strlen((const char *)&data[1]) + 1;
 
-            uint8_t picType = data[1 + mimeLen];
 #if 0
+            uint8_t picType = data[1 + mimeLen];
             if (picType != 0x03) {
                 // Front Cover Art
                 it.next();

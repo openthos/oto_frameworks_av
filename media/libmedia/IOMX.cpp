@@ -245,7 +245,7 @@ public:
 
     virtual status_t useBuffer(
             node_id node, OMX_U32 port_index, const sp<IMemory> &params,
-            buffer_id *buffer) {
+            buffer_id *buffer, OMX_BOOL /* crossProcess */) {
         Parcel data, reply;
         data.writeInterfaceToken(IOMX::getInterfaceDescriptor());
         data.writeInt32((int32_t)node);
@@ -415,7 +415,7 @@ public:
 
     virtual status_t allocateBufferWithBackup(
             node_id node, OMX_U32 port_index, const sp<IMemory> &params,
-            buffer_id *buffer) {
+            buffer_id *buffer, OMX_BOOL /* crossProcess */) {
         Parcel data, reply;
         data.writeInterfaceToken(IOMX::getInterfaceDescriptor());
         data.writeInt32((int32_t)node);
@@ -624,9 +624,7 @@ status_t BnOMX::onTransact(
             void *params = NULL;
             size_t pageSize = 0;
             size_t allocSize = 0;
-            // this only applies to a subset of devices, and was obsoleted in M
-            bool mightBeThumbnailMode = (code == SET_CONFIG && size == sizeof(OMX_BOOL));
-            if (!mightBeThumbnailMode && (code != SET_INTERNAL_OPTION && size < 8)) {
+            if (code != SET_INTERNAL_OPTION && size < 8) {
                 // we expect the structure to contain at least the size and
                 // version, 8 bytes total
                 ALOGE("b/27207275 (%zu)", size);
@@ -648,8 +646,7 @@ status_t BnOMX::onTransact(
                     } else {
                         err = NOT_ENOUGH_DATA;
                         OMX_U32 declaredSize = *(OMX_U32*)params;
-                        if (!mightBeThumbnailMode &&
-                                code != SET_INTERNAL_OPTION && declaredSize > size) {
+                        if (code != SET_INTERNAL_OPTION && declaredSize > size) {
                             // the buffer says it's bigger than it actually is
                             ALOGE("b/27207275 (%u/%zu)", declaredSize, size);
                             android_errorWriteLog(0x534e4554, "27207275");
@@ -657,31 +654,35 @@ status_t BnOMX::onTransact(
                             // mark the last page as inaccessible, to avoid exploitation
                             // of codecs that access past the end of the allocation because
                             // they didn't check the size
-                            mprotect((char*)params + allocSize - pageSize, pageSize, PROT_NONE);
-                            switch (code) {
-                                case GET_PARAMETER:
-                                    err = getParameter(node, index, params, size);
-                                    break;
-                                case SET_PARAMETER:
-                                    err = setParameter(node, index, params, size);
-                                    break;
-                                case GET_CONFIG:
-                                    err = getConfig(node, index, params, size);
-                                    break;
-                                case SET_CONFIG:
-                                    err = setConfig(node, index, params, size);
-                                    break;
-                                case SET_INTERNAL_OPTION:
-                                {
-                                    InternalOptionType type =
-                                        (InternalOptionType)data.readInt32();
+                            if (mprotect((char*)params + allocSize - pageSize, pageSize,
+                                    PROT_NONE) != 0) {
+                                ALOGE("mprotect failed: %s", strerror(errno));
+                            } else {
+                                switch (code) {
+                                    case GET_PARAMETER:
+                                        err = getParameter(node, index, params, size);
+                                        break;
+                                    case SET_PARAMETER:
+                                        err = setParameter(node, index, params, size);
+                                        break;
+                                    case GET_CONFIG:
+                                        err = getConfig(node, index, params, size);
+                                        break;
+                                    case SET_CONFIG:
+                                        err = setConfig(node, index, params, size);
+                                        break;
+                                    case SET_INTERNAL_OPTION:
+                                    {
+                                        InternalOptionType type =
+                                            (InternalOptionType)data.readInt32();
 
-                                    err = setInternalOption(node, index, type, params, size);
-                                    break;
+                                        err = setInternalOption(node, index, type, params, size);
+                                        break;
+                                    }
+
+                                    default:
+                                        TRESPASS();
                                 }
-
-                                default:
-                                    TRESPASS();
                             }
                         }
                     }
@@ -757,7 +758,8 @@ status_t BnOMX::onTransact(
                 interface_cast<IMemory>(data.readStrongBinder());
 
             buffer_id buffer;
-            status_t err = useBuffer(node, port_index, params, &buffer);
+            status_t err = useBuffer(
+                    node, port_index, params, &buffer, OMX_TRUE /* crossProcess */);
             reply->writeInt32(err);
 
             if (err == OK) {
@@ -845,7 +847,10 @@ status_t BnOMX::onTransact(
             OMX_U32 port_index = data.readInt32();
             OMX_BOOL enable = (OMX_BOOL)data.readInt32();
 
-            status_t err = storeMetaDataInBuffers(node, port_index, enable);
+            status_t err =
+                // only control output metadata via Binder
+                port_index != 1 /* kOutputPortIndex */ ? BAD_VALUE :
+                storeMetaDataInBuffers(node, port_index, enable);
             reply->writeInt32(err);
 
             return NO_ERROR;
@@ -927,7 +932,7 @@ status_t BnOMX::onTransact(
 
             buffer_id buffer;
             status_t err = allocateBufferWithBackup(
-                    node, port_index, params, &buffer);
+                    node, port_index, params, &buffer, OMX_TRUE /* crossProcess */);
 
             reply->writeInt32(err);
 

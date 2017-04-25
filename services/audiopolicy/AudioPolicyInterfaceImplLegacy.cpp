@@ -134,8 +134,8 @@ audio_io_handle_t AudioPolicyService::getOutput(audio_stream_type_t stream,
                                     audio_output_flags_t flags,
                                     const audio_offload_info_t *offloadInfo)
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return AUDIO_IO_HANDLE_NONE;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mpAudioPolicy == NULL) {
         return AUDIO_IO_HANDLE_NONE;
@@ -150,7 +150,7 @@ status_t AudioPolicyService::startOutput(audio_io_handle_t output,
                                          audio_stream_type_t stream,
                                          audio_session_t session)
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
         return BAD_VALUE;
     }
     if (mpAudioPolicy == NULL) {
@@ -171,6 +171,7 @@ status_t AudioPolicyService::startOutput(audio_io_handle_t output,
     }
 
     Mutex::Autolock _l(mLock);
+    setPowerHint(true);
     return mpAudioPolicy->start_output(mpAudioPolicy, output, stream, session);
 }
 
@@ -178,7 +179,7 @@ status_t AudioPolicyService::stopOutput(audio_io_handle_t output,
                                         audio_stream_type_t stream,
                                         audio_session_t session)
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
         return BAD_VALUE;
     }
     if (mpAudioPolicy == NULL) {
@@ -207,7 +208,9 @@ status_t  AudioPolicyService::doStopOutput(audio_io_handle_t output,
         }
     }
     Mutex::Autolock _l(mLock);
-    return mpAudioPolicy->stop_output(mpAudioPolicy, output, stream, session);
+    status_t ret = mpAudioPolicy->stop_output(mpAudioPolicy, output, stream, session);
+    setPowerHint(false);
+    return ret;
 }
 
 void AudioPolicyService::releaseOutput(audio_io_handle_t output,
@@ -259,6 +262,11 @@ status_t AudioPolicyService::getInputForAttr(const audio_attributes_t *attr,
         return BAD_VALUE;
     }
 
+#ifdef HAVE_PRE_KITKAT_AUDIO_POLICY_BLOB
+    if (inputSource == AUDIO_SOURCE_HOTWORD)
+      inputSource = AUDIO_SOURCE_VOICE_RECOGNITION;
+#endif
+
     sp<AudioPolicyEffects>audioPolicyEffects;
     {
         Mutex::Autolock _l(mLock);
@@ -289,6 +297,7 @@ status_t AudioPolicyService::startInput(audio_io_handle_t input,
     }
     Mutex::Autolock _l(mLock);
 
+    setPowerHint(true);
     return mpAudioPolicy->start_input(mpAudioPolicy, input);
 }
 
@@ -300,7 +309,9 @@ status_t AudioPolicyService::stopInput(audio_io_handle_t input,
     }
     Mutex::Autolock _l(mLock);
 
-    return mpAudioPolicy->stop_input(mpAudioPolicy, input);
+    status_t ret = mpAudioPolicy->stop_input(mpAudioPolicy, input);
+    setPowerHint(false);
+    return ret;
 }
 
 void AudioPolicyService::releaseInput(audio_io_handle_t input,
@@ -390,8 +401,8 @@ status_t AudioPolicyService::getStreamVolumeIndex(audio_stream_type_t stream,
 
 uint32_t AudioPolicyService::getStrategyForStream(audio_stream_type_t stream)
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return 0;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mpAudioPolicy == NULL) {
         return 0;
@@ -403,8 +414,8 @@ uint32_t AudioPolicyService::getStrategyForStream(audio_stream_type_t stream)
 
 audio_devices_t AudioPolicyService::getDevicesForStream(audio_stream_type_t stream)
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return AUDIO_DEVICE_NONE;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mpAudioPolicy == NULL) {
         return AUDIO_DEVICE_NONE;
@@ -452,8 +463,8 @@ status_t AudioPolicyService::setEffectEnabled(int id, bool enabled)
 
 bool AudioPolicyService::isStreamActive(audio_stream_type_t stream, uint32_t inPastMs) const
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return false;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mpAudioPolicy == NULL) {
         return false;
@@ -464,8 +475,8 @@ bool AudioPolicyService::isStreamActive(audio_stream_type_t stream, uint32_t inP
 
 bool AudioPolicyService::isStreamActiveRemotely(audio_stream_type_t stream, uint32_t inPastMs) const
 {
-    if (uint32_t(stream) >= AUDIO_STREAM_PUBLIC_CNT) {
-        return false;
+    if (uint32_t(stream) >= AUDIO_STREAM_CNT) {
+        return BAD_VALUE;
     }
     if (mpAudioPolicy == NULL) {
         return false;
@@ -508,6 +519,9 @@ status_t AudioPolicyService::queryDefaultPreProcessing(int audioSession,
 
 bool AudioPolicyService::isOffloadSupported(const audio_offload_info_t& info)
 {
+#if HAVE_PRE_KITKAT_AUDIO_POLICY_BLOB
+    return false;
+#endif
     if (mpAudioPolicy == NULL) {
         ALOGV("mpAudioPolicy == NULL");
         return false;

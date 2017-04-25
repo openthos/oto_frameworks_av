@@ -30,6 +30,8 @@
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/Utils.h>
 
+#include "ExtendedUtils.h"
+
 namespace android {
 
 NuPlayerDriver::NuPlayerDriver()
@@ -117,6 +119,10 @@ status_t NuPlayerDriver::setDataSource(int fd, int64_t offset, int64_t length) {
 
     while (mState == STATE_SET_DATASOURCE_PENDING) {
         mCondition.wait(mLock);
+    }
+
+    if (fd) {
+        ExtendedUtils::printFileName(fd);
     }
 
     return mAsyncResult;
@@ -370,6 +376,9 @@ status_t NuPlayerDriver::seekTo(int msec) {
         {
             mAtEOS = false;
             mSeekInProgress = true;
+            if (mState == STATE_PAUSED) {
+               mStartupSeekTimeUs = seekTimeUs;
+            }
             // seeks can take a while, so we essentially paused
             notifyListener_l(MEDIA_PAUSED);
             mPlayer->seekToAsync(seekTimeUs, true /* needNotify */);
@@ -549,6 +558,10 @@ status_t NuPlayerDriver::getMetadata(
 
     Metadata meta(records);
 
+    meta.appendInt32(
+            Metadata::kServerTimeout,
+            (int32_t)(mPlayer->getServerTimeoutUs() / 1000));
+
     meta.appendBool(
             Metadata::kPauseAvailable,
             mPlayerFlags & NuPlayer::Source::FLAG_CAN_PAUSE);
@@ -663,11 +676,9 @@ void NuPlayerDriver::notifyListener_l(
                 if (mLooping || (mAutoLoop
                         && (mAudioSink == NULL || mAudioSink->realtime()))) {
                     mPlayer->seekToAsync(0);
-                    if (mAudioSink != NULL) {
-                        // The renderer has stopped the sink at the end in order to play out
-                        // the last little bit of audio. If we're looping, we need to restart it.
-                        mAudioSink->start();
-                    }
+                    // The renderer has stopped the sink at the end in order to play out
+                    // the last little bit of audio. If we're looping, we need to restart it.
+                    mPlayer->startAudioSink();
                     break;
                 }
 

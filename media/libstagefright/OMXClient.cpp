@@ -90,7 +90,7 @@ struct MuxOMX : public IOMX {
 
     virtual status_t useBuffer(
             node_id node, OMX_U32 port_index, const sp<IMemory> &params,
-            buffer_id *buffer);
+            buffer_id *buffer, OMX_BOOL crossProcess);
 
     virtual status_t useGraphicBuffer(
             node_id node, OMX_U32 port_index,
@@ -112,7 +112,7 @@ struct MuxOMX : public IOMX {
 
     virtual status_t allocateBufferWithBackup(
             node_id node, OMX_U32 port_index, const sp<IMemory> &params,
-            buffer_id *buffer);
+            buffer_id *buffer, OMX_BOOL crossProcess);
 
     virtual status_t freeBuffer(
             node_id node, OMX_U32 port_index, buffer_id buffer);
@@ -173,14 +173,14 @@ bool MuxOMX::isLocalNode_l(node_id node) const {
 }
 
 // static
+
 bool MuxOMX::CanLiveLocally(const char *name) {
 #ifdef __LP64__
     (void)name; // disable unused parameter warning
     // 64 bit processes always run OMX remote on MediaServer
     return false;
 #else
-    // 32 bit processes run only OMX.google.* components locally
-    return !strncasecmp(name, "OMX.google.", 11);
+    return !strncasecmp(name, "OMX.google.", 11) || !strncasecmp(name, "OMX.ffmpeg.", 11);
 #endif
 }
 
@@ -314,8 +314,9 @@ status_t MuxOMX::getGraphicBufferUsage(
 
 status_t MuxOMX::useBuffer(
         node_id node, OMX_U32 port_index, const sp<IMemory> &params,
-        buffer_id *buffer) {
-    return getOMX(node)->useBuffer(node, port_index, params, buffer);
+        buffer_id *buffer, OMX_BOOL /* crossProcess */) {
+    return getOMX(node)->useBuffer(
+            node, port_index, params, buffer, OMX_FALSE /* crossProcess */);
 }
 
 status_t MuxOMX::useGraphicBuffer(
@@ -353,9 +354,9 @@ status_t MuxOMX::allocateBuffer(
 
 status_t MuxOMX::allocateBufferWithBackup(
         node_id node, OMX_U32 port_index, const sp<IMemory> &params,
-        buffer_id *buffer) {
+        buffer_id *buffer, OMX_BOOL /* crossProcess */) {
     return getOMX(node)->allocateBufferWithBackup(
-            node, port_index, params, buffer);
+            node, port_index, params, buffer, OMX_FALSE /* crossProcess */);
 }
 
 status_t MuxOMX::freeBuffer(

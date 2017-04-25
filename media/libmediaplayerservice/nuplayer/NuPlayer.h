@@ -19,8 +19,16 @@
 #define NU_PLAYER_H_
 
 #include <media/MediaPlayerInterface.h>
+#include <media/stagefright/ExtendedStats.h>
 #include <media/stagefright/foundation/AHandler.h>
 #include <media/stagefright/NativeWindowWrapper.h>
+
+#define PLAYER_STATS(func, ...) \
+    do { \
+        if(mPlayerExtendedStats != NULL) { \
+            mPlayerExtendedStats->func(__VA_ARGS__);} \
+    } \
+    while(0)
 
 namespace android {
 
@@ -51,6 +59,7 @@ struct NuPlayer : public AHandler {
             const sp<IGraphicBufferProducer> &bufferProducer);
 
     void setAudioSink(const sp<MediaPlayerBase::AudioSink> &sink);
+    void startAudioSink();
     void start(bool noVideo);
 
     void pause();
@@ -70,6 +79,7 @@ struct NuPlayer : public AHandler {
     void getStats(int64_t *mNumFramesTotal, int64_t *mNumFramesDropped);
 
     sp<MetaData> getFileMeta();
+    int64_t getServerTimeoutUs();
 
 protected:
     virtual ~NuPlayer();
@@ -95,6 +105,7 @@ private:
     struct SetSurfaceAction;
     struct ResumeDecoderAction;
     struct FlushDecoderAction;
+    struct InstantiateDecoderAction;
     struct PostMessageAction;
     struct SimpleAction;
 
@@ -120,6 +131,7 @@ private:
         kWhatGetSelectedTrack           = 'gSel',
         kWhatSelectTrack                = 'selT',
     };
+    sp<PlayerExtendedStats> mPlayerExtendedStats;
 
     wp<NuPlayerDriver> mDriver;
     bool mUIDValid;
@@ -130,7 +142,12 @@ private:
     sp<MediaPlayerBase::AudioSink> mAudioSink;
     sp<DecoderBase> mVideoDecoder;
     bool mOffloadAudio;
+
+    bool mOffloadDecodedPCM;
+    bool mSwitchingFromPcmOffload;
+    bool mIsStreaming;
     sp<DecoderBase> mAudioDecoder;
+
     sp<CCDecoder> mCCDecoder;
     sp<Renderer> mRenderer;
     sp<ALooper> mRendererLooper;
@@ -184,6 +201,8 @@ private:
     // true, mPaused is always true; if mPausedByClient is false, mPaused could
     // still become true, when we pause internally due to buffering.
     bool mPausedByClient;
+
+    bool mOffloadAudioTornDown;
 
     inline const sp<DecoderBase> &getDecoder(bool audio) {
         return audio ? mAudioDecoder : mVideoDecoder;

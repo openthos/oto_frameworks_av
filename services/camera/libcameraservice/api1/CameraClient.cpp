@@ -119,7 +119,7 @@ status_t CameraClient::dump(int fd, const Vector<String16>& args) {
 status_t CameraClient::dumpClient(int fd, const Vector<String16>& args) {
     const size_t SIZE = 256;
     char buffer[SIZE];
-
+    status_t rc = INVALID_OPERATION;
     size_t len = snprintf(buffer, SIZE, "Client[%d] (%p) PID: %d\n",
             mCameraId,
             getRemoteCallback()->asBinder().get(),
@@ -136,7 +136,10 @@ status_t CameraClient::dumpClient(int fd, const Vector<String16>& args) {
     const char *enddump = "\n\n";
     write(fd, enddump, strlen(enddump));
 
-    return mHardware->dump(fd, args);
+    if (mHardware != NULL) {
+        rc =  mHardware->dump(fd, args);
+    }
+    return rc;
 }
 
 // ----------------------------------------------------------------------------
@@ -365,12 +368,14 @@ status_t CameraClient::setPreviewCallbackTarget(
 
 // start preview mode
 status_t CameraClient::startPreview() {
+    Mutex::Autolock lock(mLock);
     LOG1("startPreview (pid %d)", getCallingPid());
     return startCameraMode(CAMERA_PREVIEW_MODE);
 }
 
 // start recording mode
 status_t CameraClient::startRecording() {
+    Mutex::Autolock lock(mLock);
     LOG1("startRecording (pid %d)", getCallingPid());
     return startCameraMode(CAMERA_RECORDING_MODE);
 }
@@ -378,7 +383,6 @@ status_t CameraClient::startRecording() {
 // start preview or recording
 status_t CameraClient::startCameraMode(camera_mode mode) {
     LOG1("startCameraMode(%d)", mode);
-    Mutex::Autolock lock(mLock);
     status_t result = checkPidAndHardware();
     if (result != NO_ERROR) return result;
 
@@ -456,6 +460,15 @@ void CameraClient::stopPreview() {
 
 
     disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
+    //Disable picture related message types
+    ALOGI("stopPreview: Disable picture related messages ");
+    int picMsgType = 0;
+    picMsgType = (CAMERA_MSG_SHUTTER |
+                  CAMERA_MSG_POSTVIEW_FRAME |
+                  CAMERA_MSG_RAW_IMAGE |
+                  CAMERA_MSG_RAW_IMAGE_NOTIFY |
+                  CAMERA_MSG_COMPRESSED_IMAGE);
+    disableMsgType(picMsgType);
     mHardware->stopPreview();
 
     mPreviewBuffer.clear();
@@ -468,6 +481,15 @@ void CameraClient::stopRecording() {
     if (checkPidAndHardware() != NO_ERROR) return;
 
     disableMsgType(CAMERA_MSG_VIDEO_FRAME);
+    //Disable picture related message types
+    ALOGI("stopRecording: Disable picture related messages");
+    int picMsgType = 0;
+    picMsgType = (CAMERA_MSG_SHUTTER |
+                  CAMERA_MSG_POSTVIEW_FRAME |
+                  CAMERA_MSG_RAW_IMAGE |
+                  CAMERA_MSG_RAW_IMAGE_NOTIFY |
+                  CAMERA_MSG_COMPRESSED_IMAGE);
+    disableMsgType(picMsgType);
     mHardware->stopRecording();
     mCameraService->playSound(CameraService::SOUND_RECORDING);
 
@@ -552,6 +574,10 @@ status_t CameraClient::takePicture(int msgType) {
                            CAMERA_MSG_COMPRESSED_IMAGE);
 
     enableMsgType(picMsgType);
+    mBurstCnt = mHardware->getParameters().getInt("num-snaps-per-shutter");
+    if(mBurstCnt <= 0)
+        mBurstCnt = 1;
+    LOG1("mBurstCnt = %d", mBurstCnt);
 
     return mHardware->takePicture();
 }
@@ -654,6 +680,20 @@ status_t CameraClient::sendCommand(int32_t cmd, int32_t arg1, int32_t arg2) {
     } else if (cmd == CAMERA_CMD_PING) {
         // If mHardware is 0, checkPidAndHardware will return error.
         return OK;
+    } else if (cmd == CAMERA_CMD_HISTOGRAM_ON) {
+        enableMsgType(CAMERA_MSG_STATS_DATA);
+    } else if (cmd == CAMERA_CMD_HISTOGRAM_OFF) {
+        disableMsgType(CAMERA_MSG_STATS_DATA);
+    } else if (cmd == CAMERA_CMD_METADATA_ON) {
+        enableMsgType(CAMERA_MSG_META_DATA);
+    } else if (cmd == CAMERA_CMD_METADATA_OFF) {
+        disableMsgType(CAMERA_MSG_META_DATA);
+    } else if ( cmd == CAMERA_CMD_LONGSHOT_ON ) {
+        mLongshotEnabled = true;
+    } else if ( cmd == CAMERA_CMD_LONGSHOT_OFF ) {
+        mLongshotEnabled = false;
+        disableMsgType(CAMERA_MSG_SHUTTER);
+        disableMsgType(CAMERA_MSG_COMPRESSED_IMAGE);
     }
 
     return mHardware->sendCommand(cmd, arg1, arg2);
@@ -673,8 +713,17 @@ void CameraClient::disableMsgType(int32_t msgType) {
 
 #define CHECK_MESSAGE_INTERVAL 10 // 10ms
 bool CameraClient::lockIfMessageWanted(int32_t msgType) {
+#ifdef MTK_HARDWARE
+    return true;
+#endif
     int sleepCount = 0;
     while (mMsgEnabled & msgType) {
+        if ((msgType == CAMERA_MSG_PREVIEW_FRAME) &&
+              (mMsgEnabled & CAMERA_MSG_COMPRESSED_IMAGE)) {
+           LOG1("lockIfMessageWanted(%d): Don't try to acquire mlock if "
+                "both Preview and Compressed are enabled", msgType);
+           return false;
+        }
         if (mLock.tryLock() == NO_ERROR) {
             if (sleepCount > 0) {
                 LOG1("lockIfMessageWanted(%d): waited for %d ms",
@@ -718,6 +767,18 @@ void CameraClient::notifyCallback(int32_t msgType, int32_t ext1,
         int32_t ext2, void* user) {
     LOG2("notifyCallback(%d)", msgType);
 
+#ifdef MTK_HARDWARE
+    if (msgType == 0x40000000) { //MTK_CAMERA_MSG_EXT_NOTIFY
+        if (ext1 == 0x11) { //MTK_CAMERA_MSG_EXT_NOTIFY_SHUTTER
+            msgType = CAMERA_MSG_SHUTTER;
+        }
+        if (ext1 == 0x10) { //MTK_CAMERA_MSG_EXT_CAPTURE_DONE
+            return;
+        }
+        LOG2("MtknotifyCallback(0x%x, 0x%x)", ext1, ext2);
+    }
+#endif
+
     Mutex* lock = getClientLockFromCookie(user);
     if (lock == NULL) return;
     Mutex::Autolock alock(*lock);
@@ -757,6 +818,34 @@ void CameraClient::dataCallback(int32_t msgType,
         client->handleGenericNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
         return;
     }
+
+#ifdef MTK_HARDWARE
+    if (msgType == 0x80000000) { //MTK_CAMERA_MSG_EXT_DATA
+        struct DataHeader {
+            uint32_t        extMsgType;
+        } dataHeader;
+        sp<IMemoryHeap> heap = 0;
+        ssize_t         offset = 0;
+        size_t          size = 0;
+
+        if (dataPtr.get()) {
+
+            heap = dataPtr->getMemory(&offset, &size);
+            if  ( NULL != heap.get() && NULL != heap->base() )
+                ::memcpy(&dataHeader, ((uint8_t*)heap->base()) + offset, sizeof(DataHeader));
+
+            if (dataHeader.extMsgType == 0x10) { //MTK_CAMERA_MSG_EXT_DATA_COMPRESSED_IMAGE
+                msgType = CAMERA_MSG_COMPRESSED_IMAGE;
+                sp<MemoryBase> image = new MemoryBase(heap,
+                        (offset + sizeof(DataHeader) + sizeof(uint_t) * 1),
+                        (size - sizeof(DataHeader) - sizeof(uint_t) * 1));
+                client->handleCompressedPicture(image);
+                return;
+            }
+        }
+        LOG2("MtkDataCallback(0x%x)", dataHeader.extMsgType);
+    }
+#endif
 
     switch (msgType & ~CAMERA_MSG_PREVIEW_METADATA) {
         case CAMERA_MSG_PREVIEW_FRAME:
@@ -812,7 +901,9 @@ void CameraClient::handleShutter(void) {
         c->notifyCallback(CAMERA_MSG_SHUTTER, 0, 0);
         if (!lockIfMessageWanted(CAMERA_MSG_SHUTTER)) return;
     }
-    disableMsgType(CAMERA_MSG_SHUTTER);
+    if ( !mLongshotEnabled ) {
+        disableMsgType(CAMERA_MSG_SHUTTER);
+    }
 
     mLock.unlock();
 }
@@ -891,7 +982,13 @@ void CameraClient::handleRawPicture(const sp<IMemory>& mem) {
 
 // picture callback - compressed picture ready
 void CameraClient::handleCompressedPicture(const sp<IMemory>& mem) {
-    disableMsgType(CAMERA_MSG_COMPRESSED_IMAGE);
+    if (mBurstCnt)
+        mBurstCnt--;
+
+    if (!mBurstCnt && !mLongshotEnabled) {
+        LOG1("handleCompressedPicture mBurstCnt = %d", mBurstCnt);
+        disableMsgType(CAMERA_MSG_COMPRESSED_IMAGE);
+    }
 
     sp<ICameraClient> c = mRemoteCallback;
     mLock.unlock();

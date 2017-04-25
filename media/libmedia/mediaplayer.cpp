@@ -33,6 +33,7 @@
 
 #include <media/mediaplayer.h>
 #include <media/AudioSystem.h>
+#include <media/IMediaHTTPService.h>
 
 #include <binder/MemoryBase.h>
 
@@ -142,6 +143,15 @@ status_t MediaPlayer::attachNewPlayer(const sp<IMediaPlayer>& player)
     return err;
 }
 
+#ifdef SAMSUNG_CAMERA_LEGACY
+status_t MediaPlayer::setDataSource(
+        const char *url, const KeyedVector<String8, String8> *headers)
+{
+    sp<IMediaHTTPService> httpService;
+    return setDataSource(httpService, url, headers);
+}
+#endif
+
 status_t MediaPlayer::setDataSource(
         const sp<IMediaHTTPService> &httpService,
         const char *url, const KeyedVector<String8, String8> *headers)
@@ -149,7 +159,7 @@ status_t MediaPlayer::setDataSource(
     ALOGV("setDataSource(%s)", url);
     status_t err = BAD_VALUE;
     if (url != NULL) {
-        const sp<IMediaPlayerService>& service(getMediaPlayerService());
+        const sp<IMediaPlayerService> service(getMediaPlayerService());
         if (service != 0) {
             sp<IMediaPlayer> player(service->create(this, mAudioSessionId));
             if ((NO_ERROR != doSetRetransmitEndpoint(player)) ||
@@ -166,7 +176,7 @@ status_t MediaPlayer::setDataSource(int fd, int64_t offset, int64_t length)
 {
     ALOGV("setDataSource(%d, %" PRId64 ", %" PRId64 ")", fd, offset, length);
     status_t err = UNKNOWN_ERROR;
-    const sp<IMediaPlayerService>& service(getMediaPlayerService());
+    const sp<IMediaPlayerService> service(getMediaPlayerService());
     if (service != 0) {
         sp<IMediaPlayer> player(service->create(this, mAudioSessionId));
         if ((NO_ERROR != doSetRetransmitEndpoint(player)) ||
@@ -182,7 +192,7 @@ status_t MediaPlayer::setDataSource(const sp<IStreamSource> &source)
 {
     ALOGV("setDataSource");
     status_t err = UNKNOWN_ERROR;
-    const sp<IMediaPlayerService>& service(getMediaPlayerService());
+    const sp<IMediaPlayerService> service(getMediaPlayerService());
     if (service != 0) {
         sp<IMediaPlayer> player(service->create(this, mAudioSessionId));
         if ((NO_ERROR != doSetRetransmitEndpoint(player)) ||
@@ -313,6 +323,9 @@ status_t MediaPlayer::start()
                 ALOGV("playback completed immediately following start()");
             }
         }
+    } else if ( (mPlayer != 0) && (mCurrentState & MEDIA_PLAYER_SUSPENDED) ) {
+        ALOGV("start while suspended, so ignore this start");
+        ret = NO_ERROR;
     } else {
         ALOGE("start called in state %d", mCurrentState);
         ret = INVALID_OPERATION;
@@ -372,6 +385,10 @@ bool MediaPlayer::isPlaying()
             ALOGE("internal/external state mismatch corrected");
             mCurrentState = MEDIA_PLAYER_PAUSED;
         }
+        if ((mCurrentState & MEDIA_PLAYER_PLAYBACK_COMPLETE) && temp) {
+            ALOGE("internal/external state mismatch corrected");
+            mCurrentState = MEDIA_PLAYER_STARTED;
+        }
         return temp;
     }
     ALOGV("isPlaying: no active player");
@@ -414,7 +431,7 @@ status_t MediaPlayer::getCurrentPosition(int *msec)
 status_t MediaPlayer::getDuration_l(int *msec)
 {
     ALOGV("getDuration_l");
-    bool isValidState = (mCurrentState & (MEDIA_PLAYER_PREPARED | MEDIA_PLAYER_STARTED | MEDIA_PLAYER_PAUSED | MEDIA_PLAYER_STOPPED | MEDIA_PLAYER_PLAYBACK_COMPLETE));
+    bool isValidState = (mCurrentState & (MEDIA_PLAYER_PREPARED | MEDIA_PLAYER_STARTED | MEDIA_PLAYER_PAUSED | MEDIA_PLAYER_STOPPED | MEDIA_PLAYER_PLAYBACK_COMPLETE | MEDIA_PLAYER_SUSPENDED));
     if (mPlayer != 0 && isValidState) {
         int durationMs;
         status_t ret = mPlayer->getDuration(&durationMs);
@@ -443,7 +460,7 @@ status_t MediaPlayer::getDuration(int *msec)
 status_t MediaPlayer::seekTo_l(int msec)
 {
     ALOGV("seekTo %d", msec);
-    if ((mPlayer != 0) && ( mCurrentState & ( MEDIA_PLAYER_STARTED | MEDIA_PLAYER_PREPARED | MEDIA_PLAYER_PAUSED |  MEDIA_PLAYER_PLAYBACK_COMPLETE) ) ) {
+    if ((mPlayer != 0) && ( mCurrentState & ( MEDIA_PLAYER_STARTED | MEDIA_PLAYER_PREPARED | MEDIA_PLAYER_PAUSED |  MEDIA_PLAYER_PLAYBACK_COMPLETE | MEDIA_PLAYER_SUSPENDED) ) ) {
         if ( msec < 0 ) {
             ALOGW("Attempt to seek to invalid position: %d", msec);
             msec = 0;
@@ -742,7 +759,7 @@ void MediaPlayer::notify(int msg, int ext1, int ext2, const Parcel *obj)
     }
 
     // Allows calls from JNI in idle state to notify errors
-    if (!(msg == MEDIA_ERROR && mCurrentState == MEDIA_PLAYER_IDLE) && mPlayer == 0) {
+    if (!((msg == MEDIA_ERROR || msg == MEDIA_QOE) && mCurrentState == MEDIA_PLAYER_IDLE) && mPlayer == 0) {
         ALOGV("notify(%d, %d, %d) callback on disconnected mediaplayer", msg, ext1, ext2);
         if (locked) mLock.unlock();   // release the lock when done.
         return;
@@ -817,6 +834,8 @@ void MediaPlayer::notify(int msg, int ext1, int ext2, const Parcel *obj)
         break;
     case MEDIA_SUBTITLE_DATA:
         ALOGV("Received subtitle data message");
+    case MEDIA_QOE:
+        ALOGV("Received QOE Message for event : %d",ext2);
         break;
     default:
         ALOGV("unrecognized message: (%d, %d, %d)", msg, ext1, ext2);
@@ -835,6 +854,20 @@ void MediaPlayer::notify(int msg, int ext1, int ext2, const Parcel *obj)
     }
 }
 
+#ifdef SAMSUNG_CAMERA_LEGACY
+/*static*/ status_t MediaPlayer::decode(
+        const char* url,
+        uint32_t *pSampleRate,
+        int* pNumChannels,
+        audio_format_t* pFormat,
+        const sp<IMemoryHeap>& heap,
+        size_t *pSize)
+{
+    sp<IMediaHTTPService> httpService;
+    return decode(httpService, url, pSampleRate, pNumChannels, pFormat, heap, pSize);
+}
+#endif
+
 /*static*/ status_t MediaPlayer::decode(
         const sp<IMediaHTTPService> &httpService,
         const char* url,
@@ -846,7 +879,7 @@ void MediaPlayer::notify(int msg, int ext1, int ext2, const Parcel *obj)
 {
     ALOGV("decode(%s)", url);
     status_t status;
-    const sp<IMediaPlayerService>& service = getMediaPlayerService();
+    const sp<IMediaPlayerService> service = getMediaPlayerService();
     if (service != 0) {
         status = service->decode(httpService, url, pSampleRate, pNumChannels, pFormat, heap, pSize);
     } else {
@@ -870,7 +903,7 @@ void MediaPlayer::died()
 {
     ALOGV("decode(%d, %" PRId64 ", %" PRId64 ")", fd, offset, length);
     status_t status;
-    const sp<IMediaPlayerService>& service = getMediaPlayerService();
+    const sp<IMediaPlayerService> service = getMediaPlayerService();
     if (service != 0) {
         status = service->decode(fd, offset, length, pSampleRate,
                                  pNumChannels, pFormat, heap, pSize);
@@ -895,5 +928,62 @@ status_t MediaPlayer::setNextMediaPlayer(const sp<MediaPlayer>& next) {
 
     return mPlayer->setNextPlayer(next == NULL ? NULL : next->mPlayer);
 }
+
+status_t MediaPlayer::suspend() {
+    ALOGV("MediaPlayer::suspend()");
+    Mutex::Autolock _l(mLock);
+    if (mPlayer == NULL) {
+        ALOGE("mPlayer = NULL");
+        return NO_INIT;
+    }
+
+    bool isValidState = (mCurrentState & (MEDIA_PLAYER_PREPARED | MEDIA_PLAYER_STARTED | MEDIA_PLAYER_PAUSED | MEDIA_PLAYER_STOPPED | MEDIA_PLAYER_PLAYBACK_COMPLETE | MEDIA_PLAYER_SUSPENDED));
+
+    if (!isValidState) {
+        ALOGE("suspend while in a invalid state = %d", mCurrentState);
+        return UNKNOWN_ERROR;
+    }
+
+    status_t ret = mPlayer->suspend();
+
+    if (OK != ret) {
+        ALOGE("MediaPlayer::suspend() return with error ret = %d", ret);
+        return ret;
+    }
+    mCurrentState = MEDIA_PLAYER_SUSPENDED;
+    return OK;
+}
+
+status_t MediaPlayer::resume() {
+    ALOGV("MediaPlayer::resume()");
+    Mutex::Autolock _l(mLock);
+    if (mPlayer == NULL) {
+        ALOGE("mPlayer == NULL");
+        return NO_INIT;
+    }
+
+    bool isValidState = (mCurrentState == MEDIA_PLAYER_SUSPENDED);
+
+    if (!isValidState) {
+        ALOGE("resume while in a invalid state = %d", mCurrentState);
+        return UNKNOWN_ERROR;
+    }
+
+    status_t ret = mPlayer->resume();
+
+    if (OK != ret) {
+        ALOGE("MediaPlayer::resume() return with error ret = %d", ret);
+        return ret;
+    }
+    mCurrentState = MEDIA_PLAYER_PREPARED;
+    return OK;
+}
+
+#ifdef SAMSUNG_CAMERA_LEGACY
+extern "C" int _ZN7android11MediaPlayer18setAudioStreamTypeE19audio_stream_type_t();
+extern "C" int _ZN7android11MediaPlayer18setAudioStreamTypeEi() {
+    return _ZN7android11MediaPlayer18setAudioStreamTypeE19audio_stream_type_t();
+}
+#endif
 
 }; // namespace android

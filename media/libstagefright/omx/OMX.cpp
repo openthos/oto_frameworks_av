@@ -361,9 +361,9 @@ status_t OMX::configureVideoTunnelMode(
 
 status_t OMX::useBuffer(
         node_id node, OMX_U32 port_index, const sp<IMemory> &params,
-        buffer_id *buffer) {
+        buffer_id *buffer, OMX_BOOL crossProcess) {
     return findInstance(node)->useBuffer(
-            port_index, params, buffer);
+            port_index, params, buffer, crossProcess);
 }
 
 status_t OMX::useGraphicBuffer(
@@ -400,9 +400,9 @@ status_t OMX::allocateBuffer(
 
 status_t OMX::allocateBufferWithBackup(
         node_id node, OMX_U32 port_index, const sp<IMemory> &params,
-        buffer_id *buffer) {
+        buffer_id *buffer, OMX_BOOL crossProcess) {
     return findInstance(node)->allocateBufferWithBackup(
-            port_index, params, buffer);
+            port_index, params, buffer, crossProcess);
 }
 
 status_t OMX::freeBuffer(node_id node, OMX_U32 port_index, buffer_id buffer) {
@@ -458,7 +458,12 @@ OMX_ERRORTYPE OMX::OnEvent(
     msg.u.event_data.data1 = nData1;
     msg.u.event_data.data2 = nData2;
 
-    findDispatcher(node)->post(msg);
+    sp<OMX::CallbackDispatcher> callbackDispatcher = findDispatcher(node);
+    if (callbackDispatcher != NULL) {
+        callbackDispatcher->post(msg);
+    } else {
+        ALOGE("OnEvent Callback dispatcher NULL, skip post");
+    }
 
     return OMX_ErrorNone;
 }
@@ -472,7 +477,12 @@ OMX_ERRORTYPE OMX::OnEmptyBufferDone(
     msg.node = node;
     msg.u.buffer_data.buffer = buffer;
 
-    findDispatcher(node)->post(msg);
+    sp<OMX::CallbackDispatcher> callbackDispatcher = findDispatcher(node);
+    if (callbackDispatcher != NULL) {
+        callbackDispatcher->post(msg);
+    } else {
+        ALOGE("OnEmptyBufferDone Callback dispatcher NULL, skip post");
+    }
 
     return OMX_ErrorNone;
 }
@@ -490,7 +500,12 @@ OMX_ERRORTYPE OMX::OnFillBufferDone(
     msg.u.extended_buffer_data.flags = pBuffer->nFlags;
     msg.u.extended_buffer_data.timestamp = pBuffer->nTimeStamp;
 
-    findDispatcher(node)->post(msg);
+    sp<OMX::CallbackDispatcher> callbackDispatcher = findDispatcher(node);
+    if (callbackDispatcher != NULL) {
+        callbackDispatcher->post(msg);
+    } else {
+        ALOGE("OnFillBufferDone Callback dispatcher NULL, skip post");
+    }
 
     return OMX_ErrorNone;
 }

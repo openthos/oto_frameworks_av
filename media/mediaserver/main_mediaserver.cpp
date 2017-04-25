@@ -36,6 +36,9 @@
 #include "MediaUtils.h"
 #include "AudioPolicyService.h"
 #include "SoundTriggerHwService.h"
+#ifdef AUDIO_LISTEN_ENABLED
+#include "ListenService.h"
+#endif
 
 using namespace android;
 
@@ -134,6 +137,10 @@ int main(int argc __unused, char** argv)
         AudioFlinger::instantiate();
         MediaPlayerService::instantiate();
         CameraService::instantiate();
+#ifdef AUDIO_LISTEN_ENABLED
+        ALOGI("ListenService instantiated");
+        ListenService::instantiate();
+#endif
         AudioPolicyService::instantiate();
         SoundTriggerHwService::instantiate();
         registerExtensions();
