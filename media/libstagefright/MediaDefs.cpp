@@ -17,7 +17,7 @@
  * code that are surrounded by "DOLBY..." are copyrighted and
  * licensed separately, as follows:
  *
- *  (C) 2011-2014 Dolby Laboratories, Inc.
+ *  (C) 2011-2016 Dolby Laboratories, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,16 +44,17 @@ const char *MEDIA_MIMETYPE_VIDEO_VP9 = "video/x-vnd.on2.vp9";
 const char *MEDIA_MIMETYPE_VIDEO_AVC = "video/avc";
 const char *MEDIA_MIMETYPE_VIDEO_HEVC = "video/hevc";
 const char *MEDIA_MIMETYPE_VIDEO_MPEG4 = "video/mp4v-es";
-const char *MEDIA_MIMETYPE_VIDEO_MPEG4_DP = "video/mp4v-esdp";
 const char *MEDIA_MIMETYPE_VIDEO_H263 = "video/3gpp";
 const char *MEDIA_MIMETYPE_VIDEO_MPEG2 = "video/mpeg2";
 const char *MEDIA_MIMETYPE_VIDEO_RAW = "video/raw";
+const char *MEDIA_MIMETYPE_VIDEO_DOLBY_VISION = "video/dolby-vision";
 
 const char *MEDIA_MIMETYPE_AUDIO_AMR_NB = "audio/3gpp";
 const char *MEDIA_MIMETYPE_AUDIO_AMR_WB = "audio/amr-wb";
 const char *MEDIA_MIMETYPE_AUDIO_MPEG = "audio/mpeg";
 const char *MEDIA_MIMETYPE_AUDIO_MPEG_LAYER_I = "audio/mpeg-L1";
 const char *MEDIA_MIMETYPE_AUDIO_MPEG_LAYER_II = "audio/mpeg-L2";
+const char *MEDIA_MIMETYPE_AUDIO_MIDI = "audio/midi";
 const char *MEDIA_MIMETYPE_AUDIO_AAC = "audio/mp4a-latm";
 const char *MEDIA_MIMETYPE_AUDIO_QCELP = "audio/qcelp";
 const char *MEDIA_MIMETYPE_AUDIO_VORBIS = "audio/vorbis";
@@ -66,6 +67,9 @@ const char *MEDIA_MIMETYPE_AUDIO_AAC_ADTS = "audio/aac-adts";
 const char *MEDIA_MIMETYPE_AUDIO_MSGSM = "audio/gsm";
 const char *MEDIA_MIMETYPE_AUDIO_AC3 = "audio/ac3";
 const char *MEDIA_MIMETYPE_AUDIO_EAC3 = "audio/eac3";
+#ifdef DOLBY_ENABLE
+const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC = "audio/eac3-joc";
+#endif // DOLBY_END
 
 const char *MEDIA_MIMETYPE_CONTAINER_MPEG4 = "video/mp4";
 const char *MEDIA_MIMETYPE_CONTAINER_WAV = "audio/x-wav";
@@ -81,29 +85,20 @@ const char *MEDIA_MIMETYPE_TEXT_3GPP = "text/3gpp-tt";
 const char *MEDIA_MIMETYPE_TEXT_SUBRIP = "application/x-subrip";
 const char *MEDIA_MIMETYPE_TEXT_VTT = "text/vtt";
 const char *MEDIA_MIMETYPE_TEXT_CEA_608 = "text/cea-608";
-#ifdef DOLBY_UDC
-const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC = "audio/eac3-joc";
-#endif // DOLBY_END
+const char *MEDIA_MIMETYPE_TEXT_CEA_708 = "text/cea-708";
+const char *MEDIA_MIMETYPE_DATA_TIMED_ID3 = "application/x-id3v4";
 
-const char *MEDIA_MIMETYPE_VIDEO_DIVX = "video/divx";
-const char *MEDIA_MIMETYPE_VIDEO_DIVX311 = "video/divx311";
-const char *MEDIA_MIMETYPE_VIDEO_DIVX4 = "video/divx4";
 const char *MEDIA_MIMETYPE_VIDEO_FLV1 = "video/x-flv";
 const char *MEDIA_MIMETYPE_VIDEO_MJPEG = "video/x-jpeg";
 const char *MEDIA_MIMETYPE_VIDEO_RV = "video/vnd.rn-realvideo";
 const char *MEDIA_MIMETYPE_VIDEO_VC1 = "video/vc1";
-const char *MEDIA_MIMETYPE_VIDEO_WMV = "video/x-ms-wmv";
 const char *MEDIA_MIMETYPE_VIDEO_FFMPEG = "video/ffmpeg";
 
-const char *MEDIA_MIMETYPE_AUDIO_APE = "audio/x-ape";
-const char *MEDIA_MIMETYPE_AUDIO_DTS = "audio/vnd.dts";
 const char *MEDIA_MIMETYPE_AUDIO_PCM = "audio/x-pcm";
 const char *MEDIA_MIMETYPE_AUDIO_RA = "audio/vnd.rn-realaudio";
-const char *MEDIA_MIMETYPE_AUDIO_WMA = "audio/x-ms-wma";
 const char *MEDIA_MIMETYPE_AUDIO_FFMPEG = "audio/ffmpeg";
 
 const char *MEDIA_MIMETYPE_CONTAINER_APE = "audio/x-ape";
-const char *MEDIA_MIMETYPE_CONTAINER_ASF = "video/x-ms-asf";
 const char *MEDIA_MIMETYPE_CONTAINER_DIVX = "video/divx";
 const char *MEDIA_MIMETYPE_CONTAINER_DTS = "audio/vnd.dts";
 const char *MEDIA_MIMETYPE_CONTAINER_FLAC = "audio/flac";

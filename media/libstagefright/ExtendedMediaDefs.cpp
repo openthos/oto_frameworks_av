@@ -1,4 +1,4 @@
-/*Copyright (c) 2012 - 2014, The Linux Foundation. All rights reserved.
+/*Copyright (c) 2012 - 2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -24,23 +24,33 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
-#include <QCMediaDefs.h>
+#include <stagefright/ExtendedMediaDefs.h>
 
 namespace android {
 
 const char *MEDIA_MIMETYPE_AUDIO_EVRC = "audio/evrc";
-
+const char *MEDIA_MIMETYPE_VIDEO_WMV = "video/x-ms-wmv";
+const char *MEDIA_MIMETYPE_VIDEO_WMV_VC1 = "video/wvc1";
+const char *MEDIA_MIMETYPE_AUDIO_WMA = "audio/x-ms-wma";
+const char *MEDIA_MIMETYPE_AUDIO_WMA_PRO = "audio/x-ms-wma-pro";
+const char *MEDIA_MIMETYPE_AUDIO_WMA_LOSSLESS = "audio/x-ms-wma-lossless";
+const char *MEDIA_MIMETYPE_CONTAINER_ASF = "video/x-ms-asf";
+const char *MEDIA_MIMETYPE_VIDEO_DIVX = "video/divx";
 const char *MEDIA_MIMETYPE_CONTAINER_AAC = "audio/aac";
 const char *MEDIA_MIMETYPE_CONTAINER_QCP = "audio/vnd.qcelp";
-
+const char *MEDIA_MIMETYPE_VIDEO_DIVX311 = "video/divx311";
+const char *MEDIA_MIMETYPE_VIDEO_DIVX4 = "video/divx4";
 const char *MEDIA_MIMETYPE_CONTAINER_MPEG2 = "video/mp2";
-
 const char *MEDIA_MIMETYPE_CONTAINER_3G2 = "video/3g2";
-
+const char *MEDIA_MIMETYPE_AUDIO_DTS = "audio/dts";
 const char *MEDIA_MIMETYPE_AUDIO_DTS_LBR = "audio/dts-lbr";
 const char *MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS = "audio/amr-wb-plus";
+const char *MEDIA_MIMETYPE_AUDIO_AIFF = "audio/x-aiff";
+const char *MEDIA_MIMETYPE_AUDIO_ALAC = "audio/alac";
+const char *MEDIA_MIMETYPE_AUDIO_APE = "audio/x-ape";
 const char *MEDIA_MIMETYPE_CONTAINER_QCAMR_NB = "audio/qc-amr";
 const char *MEDIA_MIMETYPE_CONTAINER_QCAMR_WB = "audio/qc-amr-wb";
 const char *MEDIA_MIMETYPE_CONTAINER_QCMPEG = "audio/qc-mpeg";
@@ -53,5 +63,10 @@ const char *MEDIA_MIMETYPE_CONTAINER_QCOGG = "video/qc-ogg";
 const char *MEDIA_MIMETYPE_CONTAINER_QCFLV = "video/qc-flv";
 const char *MEDIA_MIMETYPE_VIDEO_VPX = "video/x-vnd.on2.vp8"; //backward compatibility
 const char *MEDIA_MIMETYPE_CONTAINER_QTIFLAC = "audio/qti-flac";
+const char *MEDIA_MIMETYPE_VIDEO_MPEG4_DP = "video/mp4v-esdp";
+const char *MEDIA_MIMETYPE_CONTAINER_DSF = "audio/x-dsf"; // For DSF clip
+const char *MEDIA_MIMETYPE_CONTAINER_DFF = "audio/x-dff"; // For DFF or DIF clip
+const char *MEDIA_MIMETYPE_AUDIO_DSD = "audio/dsd";
+
 
 }  // namespace android

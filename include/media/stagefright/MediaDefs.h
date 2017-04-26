@@ -46,16 +46,17 @@ extern const char *MEDIA_MIMETYPE_VIDEO_VP9;
 extern const char *MEDIA_MIMETYPE_VIDEO_AVC;
 extern const char *MEDIA_MIMETYPE_VIDEO_HEVC;
 extern const char *MEDIA_MIMETYPE_VIDEO_MPEG4;
-extern const char *MEDIA_MIMETYPE_VIDEO_MPEG4_DP;
 extern const char *MEDIA_MIMETYPE_VIDEO_H263;
 extern const char *MEDIA_MIMETYPE_VIDEO_MPEG2;
 extern const char *MEDIA_MIMETYPE_VIDEO_RAW;
+extern const char *MEDIA_MIMETYPE_VIDEO_DOLBY_VISION;
 
 extern const char *MEDIA_MIMETYPE_AUDIO_AMR_NB;
 extern const char *MEDIA_MIMETYPE_AUDIO_AMR_WB;
 extern const char *MEDIA_MIMETYPE_AUDIO_MPEG;           // layer III
 extern const char *MEDIA_MIMETYPE_AUDIO_MPEG_LAYER_I;
 extern const char *MEDIA_MIMETYPE_AUDIO_MPEG_LAYER_II;
+extern const char *MEDIA_MIMETYPE_AUDIO_MIDI;
 extern const char *MEDIA_MIMETYPE_AUDIO_AAC;
 extern const char *MEDIA_MIMETYPE_AUDIO_QCELP;
 extern const char *MEDIA_MIMETYPE_AUDIO_VORBIS;
@@ -68,6 +69,9 @@ extern const char *MEDIA_MIMETYPE_AUDIO_AAC_ADTS;
 extern const char *MEDIA_MIMETYPE_AUDIO_MSGSM;
 extern const char *MEDIA_MIMETYPE_AUDIO_AC3;
 extern const char *MEDIA_MIMETYPE_AUDIO_EAC3;
+#ifdef DOLBY_ENABLE
+extern const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC;
+#endif // DOLBY_END
 
 extern const char *MEDIA_MIMETYPE_CONTAINER_MPEG4;
 extern const char *MEDIA_MIMETYPE_CONTAINER_WAV;
@@ -83,15 +87,12 @@ extern const char *MEDIA_MIMETYPE_TEXT_3GPP;
 extern const char *MEDIA_MIMETYPE_TEXT_SUBRIP;
 extern const char *MEDIA_MIMETYPE_TEXT_VTT;
 extern const char *MEDIA_MIMETYPE_TEXT_CEA_608;
+extern const char *MEDIA_MIMETYPE_TEXT_CEA_708;
+extern const char *MEDIA_MIMETYPE_DATA_TIMED_ID3;
 
-#ifdef DOLBY_UDC
 extern const char *MEDIA_MIMETYPE_AUDIO_EAC3_JOC;
 extern const char *MEDIA_MIMETYPE_AUDIO_EAC3;
-#endif // DOLBY_END
 
-extern const char *MEDIA_MIMETYPE_VIDEO_DIVX;
-extern const char *MEDIA_MIMETYPE_VIDEO_DIVX311;
-extern const char *MEDIA_MIMETYPE_VIDEO_DIVX4;
 extern const char *MEDIA_MIMETYPE_VIDEO_FLV1;
 extern const char *MEDIA_MIMETYPE_VIDEO_MJPEG;
 extern const char *MEDIA_MIMETYPE_VIDEO_RV;
@@ -101,15 +102,12 @@ extern const char *MEDIA_MIMETYPE_VIDEO_HEVC;
 extern const char *MEDIA_MIMETYPE_VIDEO_FFMPEG;
 
 extern const char *MEDIA_MIMETYPE_AUDIO_AC3;
-extern const char *MEDIA_MIMETYPE_AUDIO_APE;
-extern const char *MEDIA_MIMETYPE_AUDIO_DTS;
 extern const char *MEDIA_MIMETYPE_AUDIO_PCM;
 extern const char *MEDIA_MIMETYPE_AUDIO_RA;
 extern const char *MEDIA_MIMETYPE_AUDIO_WMA;
 extern const char *MEDIA_MIMETYPE_AUDIO_FFMPEG;
 
 extern const char *MEDIA_MIMETYPE_CONTAINER_APE;
-extern const char *MEDIA_MIMETYPE_CONTAINER_ASF;
 extern const char *MEDIA_MIMETYPE_CONTAINER_DIVX;
 extern const char *MEDIA_MIMETYPE_CONTAINER_DTS;
 extern const char *MEDIA_MIMETYPE_CONTAINER_FLAC;
@@ -121,12 +119,14 @@ extern const char *MEDIA_MIMETYPE_CONTAINER_RA;
 extern const char *MEDIA_MIMETYPE_CONTAINER_RM;
 extern const char *MEDIA_MIMETYPE_CONTAINER_TS;
 extern const char *MEDIA_MIMETYPE_CONTAINER_WEBM;
-extern const char *MEDIA_MIMETYPE_CONTAINER_WMA;
-extern const char *MEDIA_MIMETYPE_CONTAINER_WMV;
 extern const char *MEDIA_MIMETYPE_CONTAINER_VC1;
 extern const char *MEDIA_MIMETYPE_CONTAINER_HEVC;
+extern const char *MEDIA_MIMETYPE_CONTAINER_WMA;
+extern const char *MEDIA_MIMETYPE_CONTAINER_WMV;
 extern const char *MEDIA_MIMETYPE_CONTAINER_FFMPEG;
 
 }  // namespace android
+
+#include <media/stagefright/ExtendedMediaDefs.h>
 
 #endif  // MEDIA_DEFS_H_
