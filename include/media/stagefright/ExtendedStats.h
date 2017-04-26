@@ -166,7 +166,7 @@ protected:
     KeyedVector<AString, sp<LogEntry> > mLogEntry;
     Mutex mLock;
 
-    ExtendedStats(const ExtendedStats&) {}
+    DISALLOW_EVIL_CONSTRUCTORS(ExtendedStats);
     AString mName;
     pid_t mTid;
 
@@ -210,7 +210,7 @@ public:
     virtual void notifyPause(int64_t pauseTimeUs) = 0;
     virtual void dump() = 0;
 
-    int32_t setFrameRate(int32_t frameRate) {
+    void setFrameRate(int32_t frameRate) {
         mFrameRate = frameRate;
         mProfileTimes->setWindowSize(mFrameRate);
     }
