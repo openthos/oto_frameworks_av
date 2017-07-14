@@ -1663,6 +1663,7 @@ status_t ACodec::configureCodec(
         // determine need for software renderer
         bool usingSwRenderer = false;
         if (haveNativeWindow && (mComponentName.startsWith("OMX.google.") ||
+                                 mComponentName.startsWith("OMX.intel.") ||
                                  mComponentName.startsWith("OMX.ffmpeg."))) {
             usingSwRenderer = true;
             haveNativeWindow = false;
@@ -5567,6 +5568,7 @@ bool ACodec::LoadedState::onConfigureComponent(
 
     sp<RefBase> obj;
     if (msg->findObject("native-window", &obj)
+            && strncmp("OMX.intel.", mCodec->mComponentName.c_str(), 10)
             && strncmp("OMX.google.", mCodec->mComponentName.c_str(), 11)
             && strncmp("OMX.ffmpeg.", mCodec->mComponentName.c_str(), 11)) {
         sp<NativeWindowWrapper> nativeWindow(
