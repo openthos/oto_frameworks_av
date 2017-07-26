@@ -388,8 +388,7 @@ OMX_ERRORTYPE SoftVideoEncoderOMXComponent::internalGetParameter(
             // XXX: For now just configure input and output buffers the same size.
             // May want to determine a more suitable output buffer size independent
             // of YUV format.
-            CHECK(mColorFormat == OMX_COLOR_FormatYUV420Planar ||
-                    mColorFormat == OMX_COLOR_FormatYUV420SemiPlanar);
+            CHECK(mColorFormat == kSupportedColorFormats[0] || mColorFormat == kSupportedColorFormats[1] || mColorFormat == kSupportedColorFormats[2]);
             def->nBufferSize = mWidth * mHeight * 3 / 2;
 
             return OMX_ErrorNone;
